@@ -13,8 +13,51 @@ then measure **shortcut learning**: the % of Grad-CAM attention inside the lungs
 - **All design decisions are final in the closing comment of issue #21.** Changes go through a new issue, never silently.
   EDA findings on possible shortcuts: issue #22.
 
+## Work boundaries: who does what
+Each member owns one stage (team project guide). **Work only on your own stage's issues, branch and files.**
+
+| | Abhishek Singh | Ajit Yadav | Aman Singh | Himanshu Kumar |
+|---|---|---|---|---|
+| GitHub login | `Abhishek-Singh-2008` | `Ajit2908` | `amansingh1207` | `Himanshu-86` |
+| Stage | 1: data pipeline + baseline CNN | 2: DenseNet-121 transfer learning | 3: Grad-CAM, lung masks, attention metric, shortcut analysis | 4: lung-masked training, final comparison, README, report |
+| Branch | `stage1-data-baseline` | `stage2-densenet` | `stage3-gradcam` | `stage4-masking-report` |
+| Issues | #1–#5, #22 | #6 (parent), #7–#9 | #10 (parent), #11–#14 | #15 (parent), #16–#20 |
+| Owns (code) | `src/config.py`, `src/utils.py`, `src/metrics.py`, `src/train.py`, `src/train_baseline.py`, `src/data/`, `src/models/custom_cnn.py` | `src/models/densenet*.py`, its training script (e.g. `src/train_densenet.py`) | `src/explain/`, `src/masking/lung_masks.py` (mask generation and loading) | `src/masking/` except `lung_masks.py` (masked dataset, masked training, cross-test) |
+| Owns (data/results) | `data/splits/`, `notebooks/01_*`, `results/stage1_*` | `notebooks/02_*`, `results/stage2_*` | `notebooks/03_*`, `results/stage3/`; lung masks on Drive | `notebooks/04_*`, `results/stage4_*`; final comparison table |
+| Report sections | Introduction; dataset, preprocessing and baseline | DenseNet-121 method, training setup, model comparison | Grad-CAM, lung masks, attention metric, shortcut findings | Masking experiment, final results, discussion, abstract, conclusion; Overleaf setup and final read-through |
+| Reviews the PR of | Stage 4 (Himanshu) | Stage 1 (Abhishek) | Stage 2 (Ajit) | Stage 3 (Aman) |
+| Hands over | splits, seed, loader, baseline results → Ajit (and Aman) | best model + `LAST_CONV_LAYER["densenet121"]` → Aman | lung masks, attention-metric function, Grad-CAM function → Himanshu | final table, README, report → whole team |
+
+**Shared by everyone:** one Related Work paragraph each (on the papers used in your stage), your own entries in the shared `.bib`;
+in `README.md` each member edits only their own stage's section (Himanshu finalises the whole README in Stage 4.4);
+`requirements.txt` is add-only (add a library your stage needs, never change existing pins without an issue).
+Repo administration (labels, branch rules, collaborators, Drive folder) is done by Abhishek.
+
+**Order and dependencies.** A stage starts when the previous member posts the handover note on their parent issue.
+Exceptions from the guide: Stages 3.1 and 3.2 can start after the Stage 1 handover; Stage 4.5 (Overleaf setup) can start on day one;
+Stage 4.1 needs Stage 3.2 (masks) and the Stage 2 handover. While waiting, read your papers and draft your report section.
+If blocked: add the `blocked` label to your issue, comment what you need, and tag the person responsible.
+
+### Shared Stage 1 code is add-only
+`src/config.py`, `src/utils.py`, `src/metrics.py`, `src/train.py`, `src/data/*` are used by every stage and owned by Abhishek.
+- Others may **add** their own entries (e.g. Ajit sets `LAST_CONV_LAYER["densenet121"]`; a new helper used only by their stage).
+- **Changing existing behaviour** (splits, preprocessing, augmentation, metrics, the training loop, existing settings) needs an issue first,
+  and Abhishek reviews the change. Prefer wrapping or extending in your own files over editing shared ones.
+- `data/splits/` is never edited by anyone.
+
+### Rules for Claude (and other AI assistants)
+1. **Know who you are working for.** Before changing files, issues or PRs, identify the user with `gh api user --jq .login`
+   (fallback: `git config user.name`) and map it to the table above. If it can't be determined, ask.
+2. **Stay in the user's lane.** Work on that member's stage: their issues, their branch, the files they own.
+3. **Someone else's task:** if asked to do work that belongs to another member (their files, issues, branch or report section),
+   first **warn** the user, naming the owner and the issue (e.g. "Grad-CAM is Aman's task, #11"). Continue only if the user
+   explicitly confirms, and suggest telling the owner on their issue so the work isn't duplicated.
+4. **Shared code:** follow the add-only rule above. Don't silently change existing behaviour, even when asked; open or point to an issue.
+5. Read-only help is always fine: explaining code, answering questions, and reviewing a PR the user was asked to review.
+6. Close only issues that belong to the user, and only when their checklist and "Done when" points are true.
+
 ## Hard rules
-- **Never push to `main`.** It is protected; work on the stage branch and merge through a PR
+- **Never push to `main`.** It is protected; work on your stage branch and merge through a PR
   (`stage1-data-baseline`, `stage2-densenet`, `stage3-gradcam`, `stage4-masking-report`).
   PR reviews: Ajit → Stage 1, Aman → Stage 2, Himanshu → Stage 3, Abhishek → Stage 4.
 - **No AI attribution** in commits, PRs or issues: no `Co-Authored-By: Claude`, no "Generated with Claude Code".
@@ -49,7 +92,8 @@ then measure **shortcut learning**: the % of Grad-CAM attention inside the lungs
 - `src/metrics.py`: `compute_metrics`, `metrics_row`, `save_metrics`. Reuse them so every stage reports the same way.
 - `src/train.py`: `fit` (early stopping on val loss, AMP, checkpoints), `predict`, `make_criterion`. Reuse for DenseNet-121.
 - `src/models/custom_cnn.py`, `src/train_baseline.py`: Stage 1 baseline.
-- `src/explain/` (Stage 3), `src/masking/` (Stage 4): to be filled.
+- `src/explain/` (Aman, Stage 3: Grad-CAM, attention metric), `src/masking/lung_masks.py` (Aman, Stage 3.2: lung masks),
+  rest of `src/masking/` (Himanshu, Stage 4: masked dataset and training): to be filled.
 - `notebooks/0N_*.ipynb`: one or more notebooks per stage. `results/`: committed outputs (see `results/README.md`).
 
 ## Running

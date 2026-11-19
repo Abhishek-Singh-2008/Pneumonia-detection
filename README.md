@@ -72,8 +72,8 @@ Pneumonia-detection/
 │   ├── train_baseline.py  # Stage 1.4: train + evaluate the custom CNN
 │   ├── data/              # Stage 1: index.py, splits.py, dataset.py, check_loader.py
 │   ├── models/            # Stage 1 & 2: custom_cnn.py, DenseNet-121
-│   ├── explain/           # Stage 3: Grad-CAM, lung-attention metric
-│   └── masking/           # Stage 4: lung masks, masked training
+│   ├── explain/           # Stage 3 (Aman): Grad-CAM, lung-attention metric
+│   └── masking/           # lung_masks.py: Stage 3.2 (Aman); masked dataset/training: Stage 4 (Himanshu)
 ├── notebooks/             # notebooks per stage: 01_, 02_, 03_, 04_
 ├── results/               # committed metrics tables and figures (see results/README.md)
 └── report/                # draft LaTeX sections + notes for the Overleaf report (see report/README.md)
@@ -182,6 +182,7 @@ Full metrics (with precision and the confusion matrix, val and test) are in `res
 - Use the committed split CSVs; never make new splits. The test set is only used to report final numbers, never to choose anything.
 - Every number in the report comes from a file in `results/`.
 - Every stage has one parent issue split into child issues, labelled `stage-N` + `parent` / `child`.
+- **Work boundaries:** everyone works only on their own stage's issues, branch and files. Shared Stage 1 code (`src/config.py`, `src/train.py`, `src/metrics.py`, `src/data/`) is add-only; changing existing behaviour needs an issue. Details on who owns which files: [CLAUDE.md](CLAUDE.md#work-boundaries-who-does-what).
 - Before submission, the code must run from a clean clone using only this README.
 - Commit messages follow a short prefix style (`feat:`, `fix:`, `docs:`, `chore:`), e.g. `docs: update setup notes`.
 
