@@ -4,7 +4,7 @@
 
 We train a pneumonia classifier on paediatric chest X-rays and check whether it looks at the **lungs** or relies on **shortcuts** such as text markers, corners and image borders.
 
-> **Status:** Stage 1 in progress. All design decisions are final and listed in the closing comment of [issue #21](https://github.com/Abhishek-Singh-2008/Pneumonia-detection/issues/21). The setup, run steps and results below get filled in as each stage is finished.
+> **Status:** Stage 1 (data pipeline + baseline CNN) is complete and under review in [PR #23](https://github.com/Abhishek-Singh-2008/Pneumonia-detection/pull/23). Stage 2 (DenseNet-121) is next. All design decisions are final and listed in the closing comment of [issue #21](https://github.com/Abhishek-Singh-2008/Pneumonia-detection/issues/21). The setup, run steps and results below get filled in as each stage is finished.
 
 ---
 
@@ -59,19 +59,24 @@ The repo is named `Pneumonia-detection`. The team guide suggested `pneumonia-gra
 
 ```
 Pneumonia-detection/
-├── README.md           # project summary, how to run, results
-├── requirements.txt    # all libraries with versions
-├── data/               # dataset NOT pushed to GitHub; split CSVs in data/splits/ are
+├── README.md              # project summary, how to run, results
+├── CLAUDE.md              # rules and fixed settings for AI coding assistants (useful summary for everyone)
+├── requirements.txt       # all libraries with versions (pinned to the Kaggle image)
+├── data/                  # dataset NOT pushed to GitHub (see data/README.md)
+│   └── splits/            # committed split CSVs + split_summary.json, used by every stage
 ├── src/
-│   ├── config.py       # shared settings: seed, data root, image size, labels, metrics columns
-│   ├── utils.py        # seeding helpers
-│   ├── data/           # Stage 1: image index, splits, loading, augmentation
-│   ├── models/         # Stage 1 & 2: custom CNN, DenseNet-121
-│   ├── explain/        # Stage 3: Grad-CAM, lung-attention metric
-│   └── masking/        # Stage 4: lung masks, masked training
-├── notebooks/          # one notebook per stage: 01_, 02_, 03_, 04_
-├── results/            # metrics tables, plots, heatmaps
-└── report/             # figures and notes for the Overleaf report
+│   ├── config.py          # shared settings: seed, data root, image size, labels, metrics columns, Grad-CAM layers
+│   ├── utils.py           # seeding helpers
+│   ├── metrics.py         # shared metrics + metrics CSV writer
+│   ├── train.py           # shared training loop (early stopping on val loss) and predict()
+│   ├── train_baseline.py  # Stage 1.4: train + evaluate the custom CNN
+│   ├── data/              # Stage 1: index.py, splits.py, dataset.py, check_loader.py
+│   ├── models/            # Stage 1 & 2: custom_cnn.py, DenseNet-121
+│   ├── explain/           # Stage 3: Grad-CAM, lung-attention metric
+│   └── masking/           # Stage 4: lung masks, masked training
+├── notebooks/             # notebooks per stage: 01_, 02_, 03_, 04_
+├── results/               # committed metrics tables and figures (see results/README.md)
+└── report/                # figures and notes for the Overleaf report
 ```
 
 ## Setup and how to run
@@ -161,12 +166,21 @@ Later stages add their files here (DenseNet-121 weights, lung masks, masked-mode
 | DenseNet-121 | Unmasked | – | – | – | – | – |
 | DenseNet-121 | Lung-masked | – | – | – | – | – |
 
+Full metrics (with precision and the confusion matrix, val and test) are in `results/stageN_metrics.csv`.
+
+### Findings so far
+- **Val–test gap (Stage 1):** the baseline reaches 0.968 accuracy on val but 0.779 on test. It predicts 135 of 234 NORMAL test images as pneumonia while missing only 3 of 390 pneumonia images. The val split comes from the same distribution as train; the official test set differs. Nothing was tuned on test.
+- **Possible shortcuts in the raw data ([#22](https://github.com/Abhishek-Singh-2008/Pneumonia-detection/issues/22)):** NORMAL images are wider than tall by about 1.2×, PNEUMONIA images by about 1.5×, so the plain 224×224 resize distorts the two classes differently. All RGB files are PNEUMONIA; this cue is removed by converting every image to grayscale first.
+
 ## Working rules
 
 - `main` is kept working at all times. Each member works on their own branch and merges through a pull request.
 - PR reviews: Ajit reviews Stage 1, Aman reviews Stage 2, Himanshu reviews Stage 3, Abhishek reviews Stage 4.
 - Never commit the dataset or large model weights. They're shared through the [team Google Drive folder](https://drive.google.com/drive/folders/1-IldsdQnswOB-PVVcwLyYlijN_4TlTYA?usp=sharing).
-- One fixed random seed (42), kept in a shared config file and used everywhere.
+- One fixed random seed (42), kept in `src/config.py`; call `src.utils.set_seed()` at the start of every script.
+- All shared settings come from `src/config.py`; never hardcode paths or values.
+- Use the committed split CSVs; never make new splits. The test set is only used to report final numbers, never to choose anything.
+- Every number in the report comes from a file in `results/`.
 - Every stage has one parent issue split into child issues, labelled `stage-N` + `parent` / `child`.
 - Before submission, the code must run from a clean clone using only this README.
 - Commit messages follow a short prefix style (`feat:`, `fix:`, `docs:`, `chore:`), e.g. `docs: update setup notes`.
