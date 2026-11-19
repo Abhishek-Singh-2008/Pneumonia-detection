@@ -99,6 +99,21 @@ After unzipping, `data/chest_xray/{train,val,test}/` must exist. Data stored els
 |---|---|---|
 | `notebooks/01_eda.ipynb` | 1.1 | Class counts, patients, image sizes and modes, sample grid → `results/stage1_eda/` |
 
+### Splits (Stage 1.2)
+The split CSVs are already committed in `data/splits/`. **Every stage uses these files; do not make new splits.**
+
+| Split | Images | NORMAL | PNEUMONIA | Patients |
+|---|---|---|---|---|
+| train | 4,578 | 1,180 | 3,398 (74.2%) | 3,228 |
+| val | 654 | 169 | 485 (74.2%) | 441 |
+| test (official) | 624 | 234 | 390 (62.5%) | 428 |
+
+- Patient-level and stratified: no patient appears in two splits. The val split is 12.5% of each class in the train + official-val pool.
+- Columns: `image_id, filepath, label, label_name, patient_id, official_folder, split`. `filepath` is relative to the data root.
+- `data/splits/split_summary.json` holds the counts and the class weight `pos_weight` = 0.347263 (#NORMAL / #PNEUMONIA in train), for `BCEWithLogitsLoss`.
+- In code: `from src.data.splits import load_split, load_pos_weight`.
+- To regenerate (gives identical files on any OS and library version): `python -m src.data.splits`.
+
 ## Results
 
 *Filled in as each stage is completed. The final comparison table is added in Stage 4.*
