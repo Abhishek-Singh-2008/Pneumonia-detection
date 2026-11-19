@@ -23,7 +23,7 @@ from sklearn.metrics import ConfusionMatrixDisplay, RocCurveDisplay
 
 from src.config import (IMAGE_SIZE, IMAGENET_MEAN, IMAGENET_STD, LAST_CONV_LAYER, REPO_ROOT, RESULTS_DIR,
                         ROTATION_DEGREES, SEED, THRESHOLD)
-from src.data.dataset import get_dataloaders, get_datasets
+from src.data.dataset import ChestXrayDataset, get_dataloaders, get_datasets
 from src.data.splits import load_pos_weight
 from src.metrics import compute_metrics, metrics_row, save_metrics
 from src.models.custom_cnn import CHANNELS, CustomCNN
@@ -53,8 +53,8 @@ def parse_args():
 
 def check_cache_matches(n: int = 16) -> None:
     """The in-memory cache must give exactly the same tensors as reading from disk."""
-    plain, cached = get_datasets(cache=False)["val"], get_datasets(cache=False)["val"]
-    cached.__init__(cached.df.iloc[:n], cached.data_root, cached.transform, cache=True)
+    plain = get_datasets(cache=False)["val"]
+    cached = ChestXrayDataset(plain.df.iloc[:n], plain.data_root, plain.transform, cache=True)
     for i in range(n):
         assert torch.equal(plain[i][0], cached[i][0]), f"cache mismatch at val item {i}"
 
