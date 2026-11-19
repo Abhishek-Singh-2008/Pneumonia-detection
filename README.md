@@ -134,12 +134,22 @@ python -m src.train_baseline          # GPU recommended; about 4 min on a Kaggle
 - Grad-CAM layer: `features.block5.conv2` (`src.config.LAST_CONV_LAYER["custom_cnn"]`).
 - Training: `BCEWithLogitsLoss(pos_weight)`, Adam (lr 1e-3, weight decay 1e-4), batch 32, ReduceLROnPlateau on val loss, early stopping on **val loss** (patience 5). The test set is evaluated once with the best checkpoint.
 - Outputs: `results/stage1_metrics.csv`; `results/stage1_baseline/` (training history, val/test predictions per `image_id`, curves, confusion matrices, ROC, settings).
-- Weights: `custom_cnn_best.pth` (Google Drive, link below). Load with:
+- Weights: `custom_cnn_best.pth` in the [shared Google Drive folder](https://drive.google.com/drive/folders/1-IldsdQnswOB-PVVcwLyYlijN_4TlTYA?usp=sharing). Load with:
   ```python
   ckpt = torch.load("custom_cnn_best.pth", map_location="cpu", weights_only=False)
   model = CustomCNN(); model.load_state_dict(ckpt["model_state"])
   ```
 - The shared training loop `src/train.py` and metrics `src/metrics.py` are reused in Stage 2.
+
+## Shared files (Google Drive)
+
+Team folder: https://drive.google.com/drive/folders/1-IldsdQnswOB-PVVcwLyYlijN_4TlTYA?usp=sharing
+
+| File | Stage | What it is |
+|---|---|---|
+| `custom_cnn_best.pth` | 1 | Custom CNN baseline, best epoch by val loss |
+
+Later stages add their files here (DenseNet-121 weights, lung masks, masked-model weights).
 
 ## Results
 
@@ -155,7 +165,7 @@ python -m src.train_baseline          # GPU recommended; about 4 min on a Kaggle
 
 - `main` is kept working at all times. Each member works on their own branch and merges through a pull request.
 - PR reviews: Ajit reviews Stage 1, Aman reviews Stage 2, Himanshu reviews Stage 3, Abhishek reviews Stage 4.
-- Never commit the dataset or large model weights. They're shared through Google Drive (link will be added here).
+- Never commit the dataset or large model weights. They're shared through the [team Google Drive folder](https://drive.google.com/drive/folders/1-IldsdQnswOB-PVVcwLyYlijN_4TlTYA?usp=sharing).
 - One fixed random seed (42), kept in a shared config file and used everywhere.
 - Every stage has one parent issue split into child issues, labelled `stage-N` + `parent` / `child`.
 - Before submission, the code must run from a clean clone using only this README.
