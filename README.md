@@ -114,6 +114,18 @@ The split CSVs are already committed in `data/splits/`. **Every stage uses these
 - In code: `from src.data.splits import load_split, load_pos_weight`.
 - To regenerate (gives identical files on any OS and library version): `python -m src.data.splits`.
 
+### Data loader (Stage 1.3)
+```python
+from src.data.dataset import get_dataloaders
+loaders = get_dataloaders(batch_size=32)          # dict: train / val / test
+for images, labels, image_ids in loaders["train"]:  # images: (B, 3, 224, 224)
+    loss = criterion(model(images).squeeze(1), labels.float())
+```
+- Every image: grayscale → 3 channels → plain resize to 224×224 → ImageNet mean/std.
+- Train only: random rotation ±10°. No horizontal flip.
+- Only train is shuffled. Shuffling and workers are seeded; call `src.utils.set_seed()` at the start of every script.
+- Check: `python -m src.data.check_loader` loads every image once → `results/stage1_loader/`.
+
 ## Results
 
 *Filled in as each stage is completed. The final comparison table is added in Stage 4.*

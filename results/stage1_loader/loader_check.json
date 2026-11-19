@@ -1,0 +1,53 @@
+{
+  "train": {
+    "images": 4578,
+    "pneumonia": 3398,
+    "batches": 72,
+    "seconds": 201.9,
+    "channel_mean": [
+      -0.061,
+      0.067,
+      0.289
+    ],
+    "channel_std": [
+      1.072,
+      1.096,
+      1.091
+    ]
+  },
+  "val": {
+    "images": 654,
+    "pneumonia": 485,
+    "batches": 11,
+    "seconds": 29.0,
+    "channel_mean": [
+      0.008,
+      0.138,
+      0.359
+    ],
+    "channel_std": [
+      1.039,
+      1.062,
+      1.057
+    ]
+  },
+  "test": {
+    "images": 624,
+    "pneumonia": 390,
+    "batches": 10,
+    "seconds": 26.6,
+    "channel_mean": [
+      -0.045,
+      0.083,
+      0.305
+    ],
+    "channel_std": [
+      1.03,
+      1.053,
+      1.049
+    ]
+  },
+  "channels_equal_before_norm": true,
+  "train_order_reproducible": true,
+  "train_augmentation_reproducible": true
+}
