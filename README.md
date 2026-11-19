@@ -109,11 +109,12 @@ The split CSVs are already committed in `data/splits/`. **Every stage uses these
 
 | Split | Images | NORMAL | PNEUMONIA | Patients |
 |---|---|---|---|---|
-| train | 4,578 | 1,180 | 3,398 (74.2%) | 3,228 |
-| val | 654 | 169 | 485 (74.2%) | 441 |
+| train | 4,578 | 1,180 | 3,398 (74.2%) | 3,218 |
+| val | 654 | 169 | 485 (74.2%) | 451 |
 | test (official) | 624 | 234 | 390 (62.5%) | 428 |
 
 - Patient-level and stratified: no patient appears in two splits. The val split is 12.5% of each class in the train + official-val pool.
+- Stricter grouping for train/val (PR #23 review): all pneumonia images of `person{N}` (bacterial **and** viral) are kept on the same side, so train and val share no `person{N}` even if both types belong to one child. The `patient_id` column keeps the #21 rule.
 - Columns: `image_id, filepath, label, label_name, patient_id, official_folder, split`. `filepath` is relative to the data root.
 - `data/splits/split_summary.json` holds the counts and the class weight `pos_weight` = 0.347263 (#NORMAL / #PNEUMONIA in train), for `BCEWithLogitsLoss`.
 - In code: `from src.data.splits import load_split, load_pos_weight`.
@@ -133,7 +134,7 @@ for images, labels, image_ids in loaders["train"]:  # images: (B, 3, 224, 224)
 
 ### Baseline CNN (Stage 1.4)
 ```bash
-python -m src.train_baseline          # GPU recommended; about 4 min on a Kaggle T4
+python -m src.train_baseline          # GPU recommended; a few minutes on a Kaggle T4
 ```
 - Model: `src/models/custom_cnn.py`, 5 conv blocks → global average pooling → 1 logit (2.35 M parameters).
 - Grad-CAM layer: `features.block5.conv2` (`src.config.LAST_CONV_LAYER["custom_cnn"]`).
@@ -162,14 +163,14 @@ Later stages add their files here (DenseNet-121 weights, lung masks, masked-mode
 
 | Model | Training data | Accuracy | Recall | F1 | AUC | Lung attention % |
 |---|---|---|---|---|---|---|
-| Custom CNN | Unmasked | 0.7788 | 0.9923 | 0.8487 | 0.9353 | – |
+| Custom CNN | Unmasked | 0.8013 | 0.9821 | 0.8607 | 0.9016 | – |
 | DenseNet-121 | Unmasked | – | – | – | – | – |
 | DenseNet-121 | Lung-masked | – | – | – | – | – |
 
 Full metrics (with precision and the confusion matrix, val and test) are in `results/stageN_metrics.csv`.
 
 ### Findings so far
-- **Val–test gap (Stage 1):** the baseline reaches 0.968 accuracy on val but 0.779 on test. It predicts 135 of 234 NORMAL test images as pneumonia while missing only 3 of 390 pneumonia images. The val split comes from the same distribution as train; the official test set differs. Nothing was tuned on test.
+- **Val–test gap (Stage 1):** the baseline reaches 0.968 accuracy on val but 0.801 on test. It predicts 117 of 234 NORMAL test images as pneumonia while missing only 7 of 390 pneumonia images. The val split comes from the same distribution as train; the official test set differs. Nothing was tuned on test.
 - **Possible shortcuts in the raw data ([#22](https://github.com/Abhishek-Singh-2008/Pneumonia-detection/issues/22)):** NORMAL images are wider than tall by about 1.2×, PNEUMONIA images by about 1.5×, so the plain 224×224 resize distorts the two classes differently. All RGB files are PNEUMONIA; this cue is removed by converting every image to grayscale first.
 
 ## Working rules

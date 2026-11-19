@@ -19,5 +19,6 @@ The dataset is **not** stored in Git (see the main README, "Dataset" and "Setup"
 
 - Columns: `image_id, filepath, label, label_name, patient_id, official_folder, split`. `filepath` is relative to the data root.
 - Patient-level and stratified: no patient is in two splits. The val split is 12.5% of each class from official `train/` + `val/`.
+- Train/val grouping is stricter than `patient_id`: all pneumonia images of `person{N}` (bacterial and viral) stay together (`src.data.splits.split_group`).
 - **Do not make new splits.** Load them with `src.data.splits.load_split("train")`.
 - `python -m src.data.splits` regenerates the same split on any OS and library version (method: issue #21).

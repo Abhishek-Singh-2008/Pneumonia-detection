@@ -46,7 +46,9 @@ We keep the official test folder unchanged as the test set and build a new valid
 (official \texttt{train} plus \texttt{val}).
 The split is \emph{patient-level} and stratified by class: for each class, the patients are shuffled with a fixed seed (42)
 and assigned to validation until it holds 12.5\% of that class's images; all images of a patient go to the same set.
-The resulting sets (\cref{tab:data-splits}) share no patients, and both training and validation contain 74.2\% pneumonia images.
+As a safety margin, the training/validation split groups pneumonia images by \texttt{person\{N\}} alone, keeping a person's bacterial and viral images on the same side,
+so that the two sets share no identifier even if both types belonged to the same child.
+The resulting sets (\cref{tab:data-splits}) share no patients (and training and validation share no \texttt{person\{N\}}), and both training and validation contain 74.2\% pneumonia images.
 We first used scikit-learn's \texttt{StratifiedGroupKFold}, but with the same seed it produced different splits under different library versions.
 We therefore implemented the split directly with NumPy's legacy \texttt{RandomState}, whose random stream is fixed, so the split is identical on every platform.
 The split is stored as CSV files in the repository, and every stage of the project uses these exact files.
@@ -64,8 +66,8 @@ The split is stored as CSV files in the repository, and every stage of the proje
     \texttt{test}  &   624 &   234 &   390 &   428 \\
     \midrule
     \multicolumn{5}{l}{\emph{Our splits (used in all experiments)}} \\
-    Train      & 4,578 & 1,180 & 3,398 (74.2\%) & 3,228 \\
-    Validation &   654 &   169 &   485 (74.2\%) &   441 \\
+    Train      & 4,578 & 1,180 & 3,398 (74.2\%) & 3,218 \\
+    Validation &   654 &   169 &   485 (74.2\%) &   451 \\
     Test       &   624 &   234 &   390 (62.5\%) &   428 \\
     \bottomrule
   \end{tabular}
@@ -125,23 +127,23 @@ and the Adam optimiser~\cite{kingma2015adam} (learning rate $10^{-3}$, weight de
 The learning rate is halved when the validation loss has not improved for two epochs.
 Training stops when the validation loss has not improved for five epochs (at most 30 epochs), and we keep the weights with the lowest validation loss.
 Model selection uses only the validation set: the test set is evaluated once, with the final model and a fixed decision threshold of 0.5.
-The best validation loss was reached at epoch 7, and training stopped after epoch 12 (\cref{fig:curves}).
-Training took about four minutes on a single NVIDIA T4 GPU with mixed precision, using PyTorch~\cite{paszke2019pytorch}.
+The best validation loss was reached at epoch 3, and training stopped after epoch 8 (\cref{fig:curves}).
+Training took about two minutes on a single NVIDIA T4 GPU with mixed precision, using PyTorch~\cite{paszke2019pytorch}.
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=\linewidth]{figures/stage1/training_curves.png}
-  \caption{Baseline training: loss (left) and validation AUC and F1 (right) per epoch. The weights from epoch 7 (lowest validation loss) are kept.}
+  \caption{Baseline training: loss (left) and validation AUC and F1 (right) per epoch. The weights from epoch 3 (lowest validation loss) are kept.}
   \label{fig:curves}
 \end{figure}
 
 \paragraph{Results.}
 \Cref{tab:baseline} reports the baseline on the validation and test sets, with pneumonia as the positive class.
-On validation, the model reaches 96.8\% accuracy and an AUC of 0.997.
-On the test set, accuracy drops to 77.9\% (AUC 0.935).
+On validation, the model reaches 96.8\% accuracy and an AUC of 0.992.
+On the test set, accuracy drops to 80.1\% (AUC 0.902).
 The confusion matrices (\cref{fig:cm}) show where the difference comes from.
-The model misses only 3 of the 390 pneumonia test images (recall 0.992), but it labels 135 of the 234 normal test images as pneumonia,
-so it correctly identifies only 42.3\% of normal test images, compared with 95.3\% on validation.
+The model misses only 7 of the 390 pneumonia test images (recall 0.982), but it labels 117 of the 234 normal test images as pneumonia,
+so it correctly identifies only 50.0\% of normal test images, compared with 95.9\% on validation.
 Our validation set is drawn from the same pool as the training data, while the official test set appears to differ in distribution,
 and the model's errors on it are almost entirely false alarms on normal images.
 We did not tune the threshold or any other setting on the test set.
@@ -156,8 +158,8 @@ the Grad-CAM metric and the masking experiment should reveal it.
     \toprule
     Set & Acc. & Prec. & Recall & F1 & AUC \\
     \midrule
-    Validation & 0.968 & 0.983 & 0.973 & 0.978 & 0.997 \\
-    Test       & 0.779 & 0.741 & 0.992 & 0.849 & 0.935 \\
+    Validation & 0.968 & 0.985 & 0.971 & 0.978 & 0.992 \\
+    Test       & 0.801 & 0.766 & 0.982 & 0.861 & 0.902 \\
     \bottomrule
   \end{tabular}
   \caption{Custom CNN baseline (threshold 0.5, pneumonia = positive class). Source: \texttt{results/stage1\_metrics.csv}.}
@@ -167,7 +169,7 @@ the Grad-CAM metric and the masking experiment should reveal it.
 \begin{figure}[t]
   \centering
   \includegraphics[width=\linewidth]{figures/stage1/confusion_matrices.png}
-  \caption{Confusion matrices of the baseline on validation (left) and test (right). On the test set, 135 of 234 normal images are predicted as pneumonia.}
+  \caption{Confusion matrices of the baseline on validation (left) and test (right). On the test set, 117 of 234 normal images are predicted as pneumonia.}
   \label{fig:cm}
 \end{figure}
 

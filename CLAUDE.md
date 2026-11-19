@@ -78,7 +78,7 @@ If blocked: add the `blocked` label to your issue, comment what you need, and ta
 | Threshold | 0.5 (if ever tuned: on val only, recorded in config) |
 | Preprocessing | grayscale → 3 channels, plain resize 224×224 (no pad/crop), ImageNet mean/std |
 | Augmentation | train only, rotation ±10°, **no horizontal flip** |
-| Patient ID | `PNEUMONIA_person{N}_{bacteria\|virus}`, `NORMAL_IM-{XXXX}`, `NORMAL_NORMAL2-IM-{XXXX}` |
+| Patient ID | `PNEUMONIA_person{N}_{bacteria\|virus}`, `NORMAL_IM-{XXXX}`, `NORMAL_NORMAL2-IM-{XXXX}`; the train/val split groups by `person{N}` (both types together, `split_group()`) |
 | Image ID | `{class}_{official_folder}_{file_stem}`; lung masks are `{image_id}.png` (binary, 224×224, nearest-neighbour) |
 | Metrics CSV | `results/stageN_metrics.csv` with columns `model, data_setting, split, accuracy, precision, recall, f1, auc, tn, fp, fn, tp, attention_in_lung` |
 | Grad-CAM layers | `LAST_CONV_LAYER` in config: `custom_cnn` → `features.block5.conv2`; `densenet121` is set in Stage 2 |
@@ -107,6 +107,6 @@ If blocked: add the `blocked` label to your issue, comment what you need, and ta
   `model_state`, `epoch`, `val_loss`, `val_auc` and `extra` (all training settings).
 
 ## Known findings to keep in mind
-- Val–test gap: the baseline gets 0.97 val accuracy but 0.78 test accuracy (many NORMAL test images are predicted as pneumonia). The official test set has a different distribution.
+- Val–test gap: the baseline gets 0.97 val accuracy but 0.80 test accuracy (many NORMAL test images are predicted as pneumonia). The official test set has a different distribution.
 - Possible shortcuts in the raw data (#22): aspect ratio differs by class (~1.2 normal vs ~1.5 pneumonia), and the plain resize distorts the classes differently. This is kept as agreed and documented as a confound. All RGB files are PNEUMONIA; this cue is removed by converting to grayscale first.
 - Zero patient overlap is strong evidence, not proof, that `person{N}_bacteria` and `person{N}_virus` are different children. Mention it in the limitations section.
