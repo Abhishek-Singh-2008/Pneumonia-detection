@@ -29,6 +29,8 @@ def get_data_root() -> Path:
     candidates = []
     if os.environ.get("PNEUMONIA_DATA_ROOT"):
         candidates.append(Path(os.environ["PNEUMONIA_DATA_ROOT"]))
+    # Current Kaggle mount path, then the older one
+    candidates.append(Path("/kaggle/input/datasets/paultimothymooney/chest-xray-pneumonia/chest_xray"))
     candidates.append(Path("/kaggle/input/chest-xray-pneumonia/chest_xray"))
     kaggle_input = Path("/kaggle/input")
     if kaggle_input.is_dir():

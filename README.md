@@ -4,7 +4,7 @@
 
 We train a pneumonia classifier on paediatric chest X-rays and check whether it looks at the **lungs** or relies on **shortcuts** such as text markers, corners and image borders.
 
-> **Status:** Project setup. We're agreeing on the design decisions in [issue #1](https://github.com/Abhishek-Singh-2008/Pneumonia-Detection/issues/1) before Stage 1 code starts. The setup, run steps and results below get filled in as each stage is finished.
+> **Status:** Stage 1 in progress. All design decisions are final and listed in the closing comment of [issue #21](https://github.com/Abhishek-Singh-2008/Pneumonia-detection/issues/21). The setup, run steps and results below get filled in as each stage is finished.
 
 ---
 
@@ -28,9 +28,19 @@ Measure **shortcut learning**:
 
 **Chest X-Ray Images (Pneumonia)**, Kaggle: [`paultimothymooney/chest-xray-pneumonia`](https://www.kaggle.com/datasets/paultimothymooney/chest-xray-pneumonia)
 
-- Two classes: `NORMAL` and `PNEUMONIA` (paediatric patients).
-- The dataset is **not stored in this repo**. Download steps will be added in Stage 1.1.
-- The official `val/` folder has only 16 images, so we build a new validation split from the training images. The split files will live in `data/splits/`.
+- 5,856 images, two classes: `NORMAL` and `PNEUMONIA` (paediatric patients).
+
+  | Official folder | NORMAL | PNEUMONIA |
+  |---|---|---|
+  | `train/` | 1,341 | 3,875 |
+  | `val/` | 8 | 8 |
+  | `test/` | 234 | 390 |
+
+- The dataset is **not stored in this repo** (see [Setup](#setup-and-how-to-run)).
+- The download contains a duplicate copy at `chest_xray/chest_xray/` and a `__MACOSX/` folder. The code reads only the top-level `chest_xray/{train,val,test}`.
+- The official `val/` folder has only 16 images, so we build a new **patient-level** validation split (12.5%) from `train/` + `val/`. The official `test/` folder stays the test set. The split CSVs live in `data/splits/`.
+- **Patient ID** (used for the split): `PNEUMONIA_person{N}_{bacteria|virus}`, `NORMAL_IM-{XXXX}`, `NORMAL_NORMAL2-IM-{XXXX}`. With this rule the official folders share no patients. Zero overlap is strong evidence, not proof, that `person{N}_bacteria` and `person{N}_virus` are different children.
+- **Image ID**: `{class}_{official_folder}_{file_stem}`, e.g. `NORMAL_train_IM-0115-0001`. It is unique across the dataset and names the lung masks (`{image_id}.png`).
 
 ## Team and stages
 
@@ -43,15 +53,19 @@ The project runs as four stages in a fixed order. Each member starts when the pr
 | 3 | Aman Singh | Grad-CAM, lung masks, attention metric, shortcut analysis | `stage3-gradcam` | Lung masks, metric function |
 | 4 | Himanshu Kumar | Lung-masked training, final comparison, README, report | `stage4-masking-report` | Final table, README, report |
 
-## Repository structure (planned)
+## Repository structure
+
+The repo is named `Pneumonia-detection`. The team guide suggested `pneumonia-gradcam-shortcut-learning`; we kept the existing name (issue #21, row 11). Branch names are unchanged.
 
 ```
-Pneumonia-Detection/
+Pneumonia-detection/
 ├── README.md           # project summary, how to run, results
 ├── requirements.txt    # all libraries with versions
-├── data/               # NOT pushed to GitHub; see Dataset section
+├── data/               # dataset NOT pushed to GitHub; split CSVs in data/splits/ are
 ├── src/
-│   ├── data/           # Stage 1: loading, splits, augmentation
+│   ├── config.py       # shared settings: seed, data root, image size, labels, metrics columns
+│   ├── utils.py        # seeding helpers
+│   ├── data/           # Stage 1: image index, splits, loading, augmentation
 │   ├── models/         # Stage 1 & 2: custom CNN, DenseNet-121
 │   ├── explain/        # Stage 3: Grad-CAM, lung-attention metric
 │   └── masking/        # Stage 4: lung masks, masked training
@@ -62,7 +76,28 @@ Pneumonia-Detection/
 
 ## Setup and how to run
 
-*Added in Stage 1.*
+**Framework:** PyTorch. **Where we run:** Kaggle notebooks (free GPU, dataset attaches directly). The same code runs on Colab or locally by pointing it at the data.
+
+### On Kaggle (recommended)
+1. Create a new notebook, or upload one from `notebooks/`.
+2. **Add Input** → search `chest-xray-pneumonia` → add *Chest X-Ray Images (Pneumonia)* by Paul Mooney.
+3. Settings: turn **Internet on** (the first cell clones this repo). Turn a GPU on for training notebooks.
+4. Run All. The first cell clones the repo and the data root is found automatically.
+
+### On Colab or locally
+```bash
+git clone https://github.com/Abhishek-Singh-2008/Pneumonia-detection.git
+cd Pneumonia-detection
+pip install -r requirements.txt
+# Download the dataset (needs a Kaggle API token in ~/.kaggle/)
+kaggle datasets download -d paultimothymooney/chest-xray-pneumonia -p data --unzip
+```
+After unzipping, `data/chest_xray/{train,val,test}/` must exist. Data stored elsewhere can be used by setting `PNEUMONIA_DATA_ROOT` to the folder that contains `train/`, `val/` and `test/`.
+
+### Notebooks
+| Notebook | Stage | What it does |
+|---|---|---|
+| `notebooks/01_eda.ipynb` | 1.1 | Class counts, patients, image sizes and modes, sample grid → `results/stage1_eda/` |
 
 ## Results
 

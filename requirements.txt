@@ -1,0 +1,11 @@
+# Versions from the Kaggle notebook image the code was run on (Python 3.13).
+# On Kaggle these are preinstalled; on Colab or locally run: pip install -r requirements.txt
+torch==2.11.0
+torchvision==0.26.0
+numpy==2.1.3
+pandas==2.3.3
+scikit-learn==1.6.1
+matplotlib==3.10.0
+Pillow==13.0.0
+# Only for downloading the dataset outside Kaggle
+kaggle
