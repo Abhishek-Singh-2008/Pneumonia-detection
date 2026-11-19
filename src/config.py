@@ -52,8 +52,8 @@ def get_data_root() -> Path:
 # Labels (PNEUMONIA is the positive class)
 LABELS = {"NORMAL": 0, "PNEUMONIA": 1}
 
-# Splits: patient-level, stratified, 12.5% of the train+val pool as val
-VAL_N_SPLITS = 8  # StratifiedGroupKFold(n_splits=8) -> first fold is val
+# Splits: patient-level, stratified by class, 12.5% of the train+val pool as val
+VAL_FRACTION = 0.125
 
 # Preprocessing (shared by all models)
 IMAGE_SIZE = 224

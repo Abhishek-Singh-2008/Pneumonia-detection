@@ -3,9 +3,16 @@
 Decisions (issue #21, rows 3, 7, 14):
 - The official test/ folder is the test set, untouched.
 - Pool = official train/ + the 16 official val/ images.
-- Val = first fold of StratifiedGroupKFold(n_splits=8, shuffle=True, random_state=42),
-  i.e. about 12.5% of the pool, grouped by patient and stratified by class.
+- Val = about 12.5% of the pool, grouped by patient and stratified by class.
 - pos_weight = #NORMAL / #PNEUMONIA in the train split only (for BCEWithLogitsLoss).
+
+Method: every patient belongs to exactly one class, so stratifying by class and
+grouping by patient can be done class by class. For each class (NORMAL, then
+PNEUMONIA) the patients are sorted, shuffled with NumPy's legacy RandomState(42)
+and moved into val until val holds VAL_FRACTION of that class's images.
+RandomState's stream is frozen by NumPy, so the split is identical on every
+library version and OS. (scikit-learn's StratifiedGroupKFold was tried first but
+gives different splits on 1.6 and 1.8 with the same seed.)
 
 Run from the repo root:
     python -m src.data.splits            # writes data/splits/{train,val,test}.csv + split_summary.json
@@ -14,29 +21,39 @@ import json
 
 import numpy as np
 import pandas as pd
-import sklearn
-from sklearn.model_selection import StratifiedGroupKFold
 
-from src.config import SEED, SPLITS_DIR, VAL_N_SPLITS, get_data_root
+from src.config import CLASSES, LABELS, SEED, SPLITS_DIR, VAL_FRACTION, get_data_root
 from src.data.index import build_index
 
 SPLIT_COLUMNS = ["image_id", "filepath", "label", "label_name", "patient_id", "official_folder", "split"]
 
 
-def make_splits(index: pd.DataFrame, n_splits: int = VAL_N_SPLITS, seed: int = SEED) -> pd.DataFrame:
+def make_splits(index: pd.DataFrame, val_fraction: float = VAL_FRACTION, seed: int = SEED) -> pd.DataFrame:
     """Return the index with a `split` column (train / val / test)."""
     # Sort by image_id so the result does not depend on filesystem listing order.
     index = index.sort_values("image_id").reset_index(drop=True)
+    if index.groupby("patient_id")["label"].nunique().max() > 1:
+        raise ValueError("a patient appears in both classes; the class-wise split assumes it never does")
 
-    is_test = index["official_folder"] == "test"
-    pool = index[~is_test]
+    split = pd.Series("train", index=index.index)
+    split[index["official_folder"] == "test"] = "test"
+    pool = index[split == "train"]
 
-    sgkf = StratifiedGroupKFold(n_splits=n_splits, shuffle=True, random_state=seed)
-    _, val_pos = next(sgkf.split(np.zeros(len(pool)), pool["label"], groups=pool["patient_id"]))
+    rng = np.random.RandomState(seed)
+    for class_name in CLASSES:
+        part = pool[pool["label"] == LABELS[class_name]]
+        images_per_patient = part.groupby("patient_id").size().sort_index()
+        order = rng.permutation(len(images_per_patient))
+        target = round(val_fraction * len(part))
 
-    split = pd.Series("test", index=index.index)
-    split[pool.index] = "train"
-    split[pool.index[val_pos]] = "val"
+        val_patients, n_val = [], 0
+        for i in order:
+            if n_val >= target:
+                break
+            val_patients.append(images_per_patient.index[i])
+            n_val += int(images_per_patient.iloc[i])
+        split[part.index[part["patient_id"].isin(val_patients)]] = "val"
+
     index["split"] = split
     return index[SPLIT_COLUMNS]
 
@@ -58,14 +75,15 @@ def check_splits(df: pd.DataFrame) -> None:
 
 def summarise(df: pd.DataFrame) -> dict:
     """Counts per split and the train-only pos_weight."""
-    summary = {"seed": SEED, "n_splits": VAL_N_SPLITS, "scikit_learn": sklearn.__version__, "splits": {}}
+    summary = {"seed": SEED, "val_fraction": VAL_FRACTION, "method": "class-wise patient shuffle, numpy RandomState",
+               "splits": {}}
     for s in ("train", "val", "test"):
         part = df[df["split"] == s]
         summary["splits"][s] = {
             "images": int(len(part)),
             "NORMAL": int((part["label"] == 0).sum()),
             "PNEUMONIA": int((part["label"] == 1).sum()),
-            "pct_pneumonia": round(100 * part["label"].mean(), 1),
+            "pct_pneumonia": round(float(100 * part["label"].mean()), 1),
             "patients": int(part["patient_id"].nunique()),
             "patients_NORMAL": int(part.loc[part["label"] == 0, "patient_id"].nunique()),
             "patients_PNEUMONIA": int(part.loc[part["label"] == 1, "patient_id"].nunique()),
