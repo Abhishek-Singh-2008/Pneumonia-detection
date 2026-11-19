@@ -76,7 +76,7 @@ Pneumonia-detection/
 │   └── masking/           # Stage 4: lung masks, masked training
 ├── notebooks/             # notebooks per stage: 01_, 02_, 03_, 04_
 ├── results/               # committed metrics tables and figures (see results/README.md)
-└── report/                # figures and notes for the Overleaf report
+└── report/                # draft LaTeX sections + notes for the Overleaf report (see report/README.md)
 ```
 
 ## Setup and how to run
