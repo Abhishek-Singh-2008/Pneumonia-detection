@@ -185,6 +185,7 @@ Full metrics (with precision and the confusion matrix, val and test) are in `res
 - Every stage has one parent issue split into child issues, labelled `stage-N` + `parent` / `child`.
 - **Work boundaries:** everyone works only on their own stage's issues, branch and files. Shared Stage 1 code (`src/config.py`, `src/train.py`, `src/metrics.py`, `src/data/`) is add-only; changing existing behaviour needs an issue. Details on who owns which files: [CLAUDE.md](CLAUDE.md#work-boundaries-who-does-what).
 - Before submission, the code must run from a clean clone using only this README.
+- **Every code file has detailed comments:** a module docstring, a docstring on every function and class, and inline comments that explain *why* (rules in [CLAUDE.md](CLAUDE.md#code-comments-required-in-every-file)).
 - Commit messages follow a short prefix style (`feat:`, `fix:`, `docs:`, `chore:`), e.g. `docs: update setup notes`.
 
 ## References

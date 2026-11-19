@@ -56,6 +56,20 @@ If blocked: add the `blocked` label to your issue, comment what you need, and ta
 5. Read-only help is always fine: explaining code, answering questions, and reviewing a PR the user was asked to review.
 6. Close only issues that belong to the user, and only when their checklist and "Done when" points are true.
 
+## Code comments (required in every file)
+The code is read by teammates, reviewers and the instructor, so **every file must be understandable without asking its author.**
+- **Module docstring** at the top of every `.py` file: what the file does, which stage and issue it belongs to,
+  which #21 decisions it implements, how to run it (`python -m ...`) and what it writes.
+- **Docstring on every function and class:** purpose, arguments (with shapes/types for tensors and DataFrames),
+  return value, and any side effects (files written, global RNG used).
+- **Inline comments explain *why*, not just *what*:** the reason for a choice (e.g. "no horizontal flip: it mirrors the
+  L/R markers we study"), links to the decision (`#21 row 5`, `#22`, `PR #23`), and anything non-obvious
+  (tensor shapes, seeding, why the test set is not touched, units).
+- Comment every non-trivial block (loops over data, training steps, metric maths, file formats).
+- Write comments in plain English that a classmate new to the code can follow. Keep them up to date when the code changes;
+  a wrong comment is worse than none.
+- Notebooks: a markdown cell before each step explaining what it does and why, plus comments inside code cells.
+
 ## Hard rules
 - **Never push to `main`.** It is protected; work on your stage branch and merge through a PR
   (`stage1-data-baseline`, `stage2-densenet`, `stage3-gradcam`, `stage4-masking-report`).
