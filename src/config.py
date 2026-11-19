@@ -70,6 +70,6 @@ METRICS_COLUMNS = (
 
 # Grad-CAM target layers, filled in by the stage that builds each model
 LAST_CONV_LAYER = {
-    "custom_cnn": None,    # Stage 1.4
+    "custom_cnn": "features.block5.conv2",  # Stage 1.4
     "densenet121": None,   # Stage 2
 }

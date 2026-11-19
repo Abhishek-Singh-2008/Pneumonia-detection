@@ -15,7 +15,13 @@ Usage:
 
 Stage 4 (masked training) can pass data_root pointing at the masked copies, which
 keep the same relative paths as the original images.
+
+cache=True decodes and resizes every image once and keeps the 224x224 grayscale
+result in memory (about 300 MB for the whole dataset). The output is identical to
+cache=False (resizing an image that is already 224x224 is a no-op in PIL); it only
+avoids decoding the large JPEGs every epoch.
 """
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pandas as pd
@@ -53,35 +59,48 @@ def denormalize(images: torch.Tensor) -> torch.Tensor:
 class ChestXrayDataset(Dataset):
     """Images listed in one split CSV (columns from src/data/splits.py)."""
 
-    def __init__(self, split_df: pd.DataFrame, data_root=None, transform=None):
+    def __init__(self, split_df: pd.DataFrame, data_root=None, transform=None, cache: bool = False):
         self.df = split_df.reset_index(drop=True)
         self.data_root = Path(data_root) if data_root is not None else get_data_root()
         self.transform = transform
+        self._cache = self._preload() if cache else None
+
+    def _load_resized_gray(self, rel_path) -> Image.Image:
+        with Image.open(self.data_root / rel_path) as im:
+            return transforms.Resize((IMAGE_SIZE, IMAGE_SIZE))(im.convert("L"))
+
+    def _preload(self) -> list:
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            return list(pool.map(self._load_resized_gray, self.df["filepath"]))
 
     def __len__(self) -> int:
         return len(self.df)
 
     def __getitem__(self, i):
         row = self.df.iloc[i]
-        image = load_image(self.data_root / row["filepath"])
+        if self._cache is not None:
+            image = self._cache[i].convert("RGB")
+        else:
+            image = load_image(self.data_root / row["filepath"])
         if self.transform is not None:
             image = self.transform(image)
         return image, int(row["label"]), row["image_id"]
 
 
-def get_datasets(data_root=None, augment_train: bool = True) -> dict:
+def get_datasets(data_root=None, augment_train: bool = True, cache: bool = False) -> dict:
     """train / val / test datasets. Only train is augmented."""
     data_root = Path(data_root) if data_root is not None else get_data_root()
     return {
-        name: ChestXrayDataset(load_split(name), data_root, build_transforms(train=(name == "train" and augment_train)))
+        name: ChestXrayDataset(load_split(name), data_root,
+                               build_transforms(train=(name == "train" and augment_train)), cache=cache)
         for name in ("train", "val", "test")
     }
 
 
 def get_dataloaders(batch_size: int = 32, num_workers: int = 2, data_root=None,
-                    augment_train: bool = True, seed: int = SEED) -> dict:
+                    augment_train: bool = True, seed: int = SEED, cache: bool = False) -> dict:
     """train / val / test loaders. Only train is shuffled; shuffling and workers are seeded."""
-    datasets = get_datasets(data_root, augment_train)
+    datasets = get_datasets(data_root, augment_train, cache)
     loaders = {}
     for name, ds in datasets.items():
         generator = torch.Generator()

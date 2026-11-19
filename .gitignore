@@ -33,3 +33,6 @@ desktop.ini
 
 # Local-only folders
 task/
+
+# Model checkpoints (local runs)
+checkpoints/
