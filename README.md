@@ -126,13 +126,28 @@ for images, labels, image_ids in loaders["train"]:  # images: (B, 3, 224, 224)
 - Only train is shuffled. Shuffling and workers are seeded; call `src.utils.set_seed()` at the start of every script.
 - Check: `python -m src.data.check_loader` loads every image once → `results/stage1_loader/`.
 
+### Baseline CNN (Stage 1.4)
+```bash
+python -m src.train_baseline          # GPU recommended; about 4 min on a Kaggle T4
+```
+- Model: `src/models/custom_cnn.py`, 5 conv blocks → global average pooling → 1 logit (2.35 M parameters).
+- Grad-CAM layer: `features.block5.conv2` (`src.config.LAST_CONV_LAYER["custom_cnn"]`).
+- Training: `BCEWithLogitsLoss(pos_weight)`, Adam (lr 1e-3, weight decay 1e-4), batch 32, ReduceLROnPlateau on val loss, early stopping on **val loss** (patience 5). The test set is evaluated once with the best checkpoint.
+- Outputs: `results/stage1_metrics.csv`; `results/stage1_baseline/` (training history, val/test predictions per `image_id`, curves, confusion matrices, ROC, settings).
+- Weights: `custom_cnn_best.pth` (Google Drive, link below). Load with:
+  ```python
+  ckpt = torch.load("custom_cnn_best.pth", map_location="cpu", weights_only=False)
+  model = CustomCNN(); model.load_state_dict(ckpt["model_state"])
+  ```
+- The shared training loop `src/train.py` and metrics `src/metrics.py` are reused in Stage 2.
+
 ## Results
 
-*Filled in as each stage is completed. The final comparison table is added in Stage 4.*
+*Test-set metrics, filled in as each stage is completed. The final comparison table is added in Stage 4.*
 
 | Model | Training data | Accuracy | Recall | F1 | AUC | Lung attention % |
 |---|---|---|---|---|---|---|
-| Custom CNN | Unmasked | – | – | – | – | – |
+| Custom CNN | Unmasked | 0.7788 | 0.9923 | 0.8487 | 0.9353 | – |
 | DenseNet-121 | Unmasked | – | – | – | – | – |
 | DenseNet-121 | Lung-masked | – | – | – | – | – |
 
