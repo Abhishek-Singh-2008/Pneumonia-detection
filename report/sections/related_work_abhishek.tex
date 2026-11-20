@@ -1,0 +1,13 @@
+% =====================================================================
+% Related work: Abhishek's paragraph (papers used in Stage 1)
+% Paste into the shared Related Work section; the others add one paragraph each.
+% =====================================================================
+\paragraph{Pneumonia detection from chest X-rays.}
+CheXNet~\cite{rajpurkar2017chexnet} fine-tuned an ImageNet-pretrained 121-layer DenseNet on the ChestX-ray14 dataset
+of more than 100,000 frontal chest X-rays and reported pneumonia detection performance that exceeded the average of four practising radiologists.
+It also visualised its predictions with class activation maps, an early step towards checking where such models look.
+The paediatric dataset we use was introduced by Kermany \etal~\cite{kermany2018identifying}, who applied transfer learning from ImageNet to separate normal and pneumonia X-rays,
+and it is widely used as a benchmark through its Kaggle release~\cite{mooney2018kaggle}.
+Later work has questioned what such models actually learn: Zech \etal~\cite{zech2018variable} found that pneumonia classifiers exploit hospital-specific signals and lose accuracy on data from other hospitals,
+and DeGrave \etal~\cite{degrave2021ai} found that COVID-19 classifiers rely on markers and regions outside the lungs, examples of shortcut learning in the sense of Geirhos \etal~\cite{geirhos2020shortcut}.
+Our Stage~1 builds the baseline and the data pipeline for testing exactly this on the Kermany data. Unlike much previous work on this dataset, it uses a patient-level validation split and keeps the official test set untouched.

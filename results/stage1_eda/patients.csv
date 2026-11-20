@@ -1,0 +1,7 @@
+official_folder,label_name,images,patients,images per patient
+test,NORMAL,234,225,1.04
+test,PNEUMONIA,390,203,1.92
+train,NORMAL,1341,1211,1.11
+train,PNEUMONIA,3875,2443,1.59
+val,NORMAL,8,8,1.0
+val,PNEUMONIA,8,7,1.14

@@ -1,0 +1,36 @@
+{
+  "seed": 42,
+  "val_fraction": 0.125,
+  "method": "class-wise group shuffle, numpy RandomState",
+  "grouping": "PNEUMONIA: person{N} (bacterial and viral together); NORMAL: patient_id",
+  "splits": {
+    "train": {
+      "images": 4578,
+      "NORMAL": 1180,
+      "PNEUMONIA": 3398,
+      "pct_pneumonia": 74.2,
+      "patients": 3218,
+      "patients_NORMAL": 1070,
+      "patients_PNEUMONIA": 2148
+    },
+    "val": {
+      "images": 654,
+      "NORMAL": 169,
+      "PNEUMONIA": 485,
+      "pct_pneumonia": 74.2,
+      "patients": 451,
+      "patients_NORMAL": 149,
+      "patients_PNEUMONIA": 302
+    },
+    "test": {
+      "images": 624,
+      "NORMAL": 234,
+      "PNEUMONIA": 390,
+      "pct_pneumonia": 62.5,
+      "patients": 428,
+      "patients_NORMAL": 225,
+      "patients_PNEUMONIA": 203
+    }
+  },
+  "pos_weight": 0.347263
+}

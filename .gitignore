@@ -1,0 +1,38 @@
+# Dataset and large files: never commit (shared through Kaggle / Google Drive)
+data/*
+!data/README.md
+!data/splits/
+*.pth
+*.pt
+*.ckpt
+*.h5
+*.onnx
+*.zip
+
+# Secrets
+kaggle.json
+access_token
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# Local-only folders
+task/
+
+# Model checkpoints (local runs)
+checkpoints/

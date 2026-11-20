@@ -1,0 +1,181 @@
+% =====================================================================
+% Dataset, preprocessing and baseline CNN  (author: Abhishek Singh, Stage 1)
+% Every number below comes from results/ or data/splits/ in the repository:
+%   results/stage1_eda/*.csv, data/splits/split_summary.json,
+%   results/stage1_baseline/settings.json, results/stage1_metrics.csv
+% Figures to upload to Overleaf (keep these paths):
+%   figures/stage1/sample_grid.png          <- results/stage1_eda/sample_grid.png
+%   figures/stage1/image_sizes.png          <- results/stage1_eda/image_sizes.png
+%   figures/stage1/training_curves.png      <- results/stage1_baseline/training_curves.png
+%   figures/stage1/confusion_matrices.png   <- results/stage1_baseline/confusion_matrices.png
+% =====================================================================
+\section{Dataset and Preprocessing}
+\label{sec:data}
+
+\subsection{Dataset}
+\label{sec:data-dataset}
+We use the \emph{Chest X-Ray Images (Pneumonia)} dataset~\cite{mooney2018kaggle}, the Kaggle release of the paediatric chest X-rays
+collected by Kermany \etal~\cite{kermany2018identifying} at the Guangzhou Women and Children's Medical Center.
+It contains 5,856 frontal chest X-rays in two classes: 1,583 \textsc{normal} and 4,273 \textsc{pneumonia}
+(2,780 bacterial and 1,493 viral, which we treat as one class).
+The images are split into official \texttt{train}, \texttt{val} and \texttt{test} folders (\cref{tab:data-splits}).
+The download also contains a duplicate copy of all images in a nested \texttt{chest\_xray/} folder and a \texttt{\_\_MACOSX/} folder; we read only the top-level folders.
+\Cref{fig:samples} shows example images.
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figures/stage1/sample_grid.png}
+  \caption{Random training images (fixed seed) with their original size. Text markers such as the letter \emph{R} appear in both classes.
+           Pneumonia images are often wider relative to their height (\cref{sec:data-eda}).}
+  \label{fig:samples}
+\end{figure*}
+
+\paragraph{Patients.}
+Several images can belong to the same child (up to 30 for one patient), so images of one patient must never be spread across training and evaluation sets.
+The filenames encode a patient identifier, from which we derive a patient ID:
+\texttt{person\{N\}\_\{bacteria|virus\}} for pneumonia images and \texttt{IM-\{XXXX\}} or \texttt{NORMAL2-IM-\{XXXX\}} for normal images.
+With this rule the official folders share no patients, and the dataset contains 4,097 patients (1,444 normal, 2,653 pneumonia).
+If only \texttt{person\{N\}} were used, 170 identifiers would appear in both the official training and test folders.
+Including the infection type removes all of this overlap, which strongly suggests that \texttt{person\{N\}\_bacteria} and \texttt{person\{N\}\_virus} are different children.
+This is an inference from the file names and not a fact documented by the dataset authors (\cref{sec:data-limits}).
+
+\subsection{Data splits}
+\label{sec:data-splits}
+The official validation folder contains only 16 images, which is too few for model selection.
+We keep the official test folder unchanged as the test set and build a new validation set from the remaining 5,232 images
+(official \texttt{train} plus \texttt{val}).
+The split is \emph{patient-level} and stratified by class: for each class, the patients are shuffled with a fixed seed (42)
+and assigned to validation until it holds 12.5\% of that class's images; all images of a patient go to the same set.
+As a safety margin, the training/validation split groups pneumonia images by \texttt{person\{N\}} alone, keeping a person's bacterial and viral images on the same side,
+so that the two sets share no identifier even if both types belonged to the same child.
+The resulting sets (\cref{tab:data-splits}) share no patients (and training and validation share no \texttt{person\{N\}}), and both training and validation contain 74.2\% pneumonia images.
+We first used scikit-learn's \texttt{StratifiedGroupKFold}, but with the same seed it produced different splits under different library versions.
+We therefore implemented the split directly with NumPy's legacy \texttt{RandomState}, whose random stream is fixed, so the split is identical on every platform.
+The split is stored as CSV files in the repository, and every stage of the project uses these exact files.
+
+\begin{table}[t]
+  \centering
+  \small
+  \begin{tabular}{lrrrr}
+    \toprule
+    Set & Images & Normal & Pneumonia & Patients \\
+    \midrule
+    \multicolumn{5}{l}{\emph{Official folders}} \\
+    \texttt{train} & 5,216 & 1,341 & 3,875 & 3,654 \\
+    \texttt{val}   &    16 &     8 &     8 &    15 \\
+    \texttt{test}  &   624 &   234 &   390 &   428 \\
+    \midrule
+    \multicolumn{5}{l}{\emph{Our splits (used in all experiments)}} \\
+    Train      & 4,578 & 1,180 & 3,398 (74.2\%) & 3,218 \\
+    Validation &   654 &   169 &   485 (74.2\%) &   451 \\
+    Test       &   624 &   234 &   390 (62.5\%) &   428 \\
+    \bottomrule
+  \end{tabular}
+  \caption{Images and patients per set. Our validation set is a patient-level, stratified 12.5\% of the official \texttt{train} and \texttt{val} folders; the official test folder is unchanged.}
+  \label{tab:data-splits}
+\end{table}
+
+\subsection{Exploratory analysis and potential shortcuts}
+\label{sec:data-eda}
+The images vary widely in size: widths range from 384 to 2,916 pixels and heights from 127 to 2,713 pixels.
+Two properties of the raw files differ systematically between the classes (\cref{fig:sizes}):
+\begin{itemize}
+  \item \textbf{Size and aspect ratio.} Normal images are larger (median $1654\times1323$ pixels) than pneumonia images (median $1160\times776$),
+        and their median width-to-height ratio is about 1.2, compared with about 1.5 for pneumonia images.
+        A plain resize to a square input therefore squeezes the two classes by different amounts, so a model could learn the distortion instead of the lung findings.
+  \item \textbf{Colour mode.} All 283 RGB files in the dataset are pneumonia images; every normal image is stored as single-channel grayscale.
+\end{itemize}
+Both properties are potential shortcuts that exist before any model is trained.
+We remove the colour-mode cue by converting every image to grayscale (\cref{sec:data-preproc}).
+We keep the plain resize: padding to a square would encode the aspect ratio in the width of the black bars and add artificial borders,
+and cropping could cut off the edges of the lungs.
+We therefore treat the aspect ratio as a known confound when interpreting the results.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figures/stage1/image_sizes.png}
+  \caption{Image size (left) and aspect ratio (right) per class. Pneumonia images are smaller and relatively wider, so a square resize distorts the two classes differently.}
+  \label{fig:sizes}
+\end{figure}
+
+\subsection{Preprocessing and augmentation}
+\label{sec:data-preproc}
+All models in this project share the same preprocessing.
+Each image is converted to grayscale, copied to three channels (so that ImageNet-pretrained networks can be used in later stages),
+resized to $224\times224$ pixels without padding or cropping, and normalised with the ImageNet mean and standard deviation.
+During training only, images are rotated by a random angle of up to $\pm10^\circ$.
+We deliberately do not use horizontal flips: flipping a chest X-ray moves the heart to the other side and mirrors the laterality markers,
+which are among the shortcuts this project studies.
+The classes are imbalanced (74.2\% pneumonia in the training set).
+We compensate in the loss with a positive-class weight equal to the ratio of normal to pneumonia images in the training set, $w_{+} = 1180/3398 = 0.347$.
+Data loading, shuffling and augmentation are seeded, so training runs are reproducible.
+
+\section{Baseline CNN}
+\label{sec:baseline}
+
+\paragraph{Architecture.}
+As a baseline we train a custom CNN from scratch.
+It has five convolutional blocks with 32, 64, 128, 256 and 256 channels.
+Each block applies two $3\times3$ convolutions, each followed by batch normalisation~\cite{ioffe2015batch} and a ReLU, and then $2\times2$ max pooling.
+The blocks are followed by global average pooling, dropout ($p=0.3$) and a single linear output: the logit of the pneumonia class.
+The network has 2.35\,M parameters.
+The last convolutional layer produces a $14\times14$ feature map, which Grad-CAM uses to produce the heatmaps in Stage~3.
+
+\paragraph{Training.}
+The model is trained with binary cross-entropy on the logit, using the positive-class weight from \cref{sec:data-preproc},
+and the Adam optimiser~\cite{kingma2015adam} (learning rate $10^{-3}$, weight decay $10^{-4}$, batch size 32).
+The learning rate is halved when the validation loss has not improved for two epochs.
+Training stops when the validation loss has not improved for five epochs (at most 30 epochs), and we keep the weights with the lowest validation loss.
+Model selection uses only the validation set: the test set is evaluated once, with the final model and a fixed decision threshold of 0.5.
+The best validation loss was reached at epoch 3, and training stopped after epoch 8 (\cref{fig:curves}).
+Training took about two minutes on a single NVIDIA T4 GPU with mixed precision, using PyTorch~\cite{paszke2019pytorch}.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figures/stage1/training_curves.png}
+  \caption{Baseline training: loss (left) and validation AUC and F1 (right) per epoch. The weights from epoch 3 (lowest validation loss) are kept.}
+  \label{fig:curves}
+\end{figure}
+
+\paragraph{Results.}
+\Cref{tab:baseline} reports the baseline on the validation and test sets, with pneumonia as the positive class.
+On validation, the model reaches 96.8\% accuracy and an AUC of 0.992.
+On the test set, accuracy drops to 80.1\% (AUC 0.902).
+The confusion matrices (\cref{fig:cm}) show where the difference comes from.
+The model misses only 7 of the 390 pneumonia test images (recall 0.982), but it labels 117 of the 234 normal test images as pneumonia,
+so it correctly identifies only 50.0\% of normal test images, compared with 95.9\% on validation.
+Our validation set is drawn from the same pool as the training data, while the official test set appears to differ in distribution,
+and the model's errors on it are almost entirely false alarms on normal images.
+We did not tune the threshold or any other setting on the test set.
+% TODO (Ajit, Stage 2): one sentence comparing with DenseNet-121 once its results are in results/stage2_metrics.csv.
+This gap is a starting point for the attention analysis: if the false positives are driven by regions outside the lungs,
+the Grad-CAM metric and the masking experiment should reveal it.
+
+\begin{table}[t]
+  \centering
+  \small
+  \begin{tabular}{lccccc}
+    \toprule
+    Set & Acc. & Prec. & Recall & F1 & AUC \\
+    \midrule
+    Validation & 0.968 & 0.985 & 0.971 & 0.978 & 0.992 \\
+    Test       & 0.801 & 0.766 & 0.982 & 0.861 & 0.902 \\
+    \bottomrule
+  \end{tabular}
+  \caption{Custom CNN baseline (threshold 0.5, pneumonia = positive class). Source: \texttt{results/stage1\_metrics.csv}.}
+  \label{tab:baseline}
+\end{table}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figures/stage1/confusion_matrices.png}
+  \caption{Confusion matrices of the baseline on validation (left) and test (right). On the test set, 117 of 234 normal images are predicted as pneumonia.}
+  \label{fig:cm}
+\end{figure}
+
+\subsection{Limitations of the data}
+\label{sec:data-limits}
+% Can be moved into the shared Limitations / Discussion section.
+The patient IDs are inferred from file names (\cref{sec:data-dataset}); zero overlap between the official folders is strong evidence, but not proof, that our split separates patients.
+The aspect-ratio difference between the classes (\cref{sec:data-eda}) is not removed by our preprocessing, and lung masking (Stage~4) does not remove it either, because the masked lungs are still distorted.
+Finally, all images come from a single medical centre, so none of our test results measure how well the models generalise to other hospitals.
