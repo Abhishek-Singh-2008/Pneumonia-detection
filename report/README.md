@@ -8,9 +8,9 @@ Overleaf is the master copy. Files here are drafts for each member to paste in, 
 |---|---|---|
 | Introduction and problem statement | Abhishek | `sections/01_introduction.tex` |
 | Dataset, preprocessing and baseline CNN | Abhishek | `sections/03_dataset_baseline.tex` |
-| Related work (one paragraph each) | All four | `sections/related_work_abhishek.tex` (Abhishek's paragraph) |
-| References | All four | `references_abhishek.bib` (Abhishek's entries) |
-| DenseNet-121 method, training, comparison | Ajit | – |
+| Related work (one paragraph each) | All four | `sections/related_work_abhishek.tex` (Abhishek's paragraph), `sections/related_work_ajit.tex` (Ajit's paragraph) |
+| References | All four | `references_abhishek.bib` (Abhishek's entries), `references_ajit.bib` (Ajit's entries) |
+| DenseNet-121 method, training, comparison | Ajit | `sections/04_densenet_comparison.tex` |
 | Grad-CAM, lung masks, attention metric, shortcut findings | Aman | – |
 | Masking experiment, final results, discussion, abstract, conclusion | Himanshu | – |
 

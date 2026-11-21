@@ -127,5 +127,7 @@ METRICS_COLUMNS = (
 # Each stage fills in its own model so Aman (Stage 3) can hook Grad-CAM without guessing.
 LAST_CONV_LAYER = {
     "custom_cnn": "features.block5.conv2",  # Stage 1.4, output 256 x 14 x 14
-    "densenet121": None,   # Stage 2 (Ajit) fills this in
+    # Stage 2 (Ajit): the ReLU after the last feature map, output 1024 x 7 x 7 (post-ReLU, as requested in
+    # the PR #24 review). It is a named, non-in-place module of src/models/densenet121.py, so hooks see clean tensors.
+    "densenet121": "relu",
 }

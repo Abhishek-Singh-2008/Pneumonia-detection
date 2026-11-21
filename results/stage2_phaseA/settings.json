@@ -1,0 +1,34 @@
+{
+  "model": "densenet121",
+  "phase": "A (backbone frozen, head only)",
+  "pretrained": "ImageNet (IMAGENET1K_V1)",
+  "dropout": 0.2,
+  "seed": 42,
+  "image_size": 224,
+  "mean": [
+    0.485,
+    0.456,
+    0.406
+  ],
+  "std": [
+    0.229,
+    0.224,
+    0.225
+  ],
+  "rotation_degrees": 10,
+  "pos_weight": 0.347263,
+  "threshold": 0.5,
+  "optimizer": "Adam",
+  "lr": 0.001,
+  "weight_decay": 0.0001,
+  "scheduler": "ReduceLROnPlateau(factor=0.5, patience=2) on val loss",
+  "batch_size": 32,
+  "max_epochs": 20,
+  "patience": 5,
+  "selection": "lowest val loss",
+  "amp": true,
+  "trainable_parameters": 1025,
+  "best_epoch": 19,
+  "best_val_loss": 0.065209,
+  "device": "cuda"
+}
