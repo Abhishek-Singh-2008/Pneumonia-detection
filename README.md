@@ -106,6 +106,7 @@ After unzipping, `data/chest_xray/{train,val,test}/` must exist. Data stored els
 | Notebook | Stage | What it does |
 |---|---|---|
 | `notebooks/01_eda.ipynb` | 1.1 | Class counts, patients, image sizes and modes, sample grid → `results/stage1_eda/` |
+| `notebooks/03_gradcam_masks.ipynb` | 3 | Self-checks, lung masks for all images, Grad-CAM + attention metric for both models, figures → `results/stage3/` |
 
 ### Splits (Stage 1.2)
 The split CSVs are already committed in `data/splits/`. **Every stage uses these files; do not make new splits.**
@@ -178,6 +179,20 @@ python -m src.evaluate_densenet                                        # 2.3 tes
   ckpt = torch.load("densenet121_phaseB_lr1e-4_bs16_best.pth", map_location="cpu", weights_only=False)
   model = DenseNet121Classifier(pretrained=False); model.load_state_dict(ckpt["model_state"])
   ```
+
+### Lung masks, Grad-CAM and the attention metric (Stage 3)
+Easiest: run `notebooks/03_gradcam_masks.ipynb` on Kaggle (GPU and Internet on). The same steps from a terminal:
+```bash
+pip install torchxrayvision                       # pretrained lung segmentation model (not preinstalled on Kaggle)
+python -m src.explain.check_explain               # self-checks on synthetic data, no dataset needed
+python -m src.masking.lung_masks --zip            # 3.2 lung masks for all 5,856 images + eye-check figures
+python -m src.explain.run_gradcam --checkpoint-dir <folder with both .pth files> --mask-dir <lung mask folder>   # 3.3
+```
+- **Lung masks** (`src/masking/lung_masks.py`): torchxrayvision's pretrained PSPNet (ChestX-Det, adult X-rays); its left and right lung outputs are joined. The whole image is resized without cropping, exactly like the classifier input, so masks line up pixel by pixel with the heatmaps. Saved as `{image_id}.png`, 224 × 224, binary (0 = background, 255 = lung, #21 row 14). Read them with `load_mask(mask_dir, image_id)` / `load_masks(...)`. The masks are on the team Drive (`lung_masks.zip`), not in the repo.
+  - **Known limitation:** the segmentation model was trained on adult X-rays. On a pneumonia image where a lung is white from consolidation, it can miss most of that lung (seen on `PNEUMONIA_test_person100_bacteria_475` during testing). Heatmap mass on the missed part then counts as *outside* the lung, so `attention_in_lung` can be too low for pneumonia images. Such masks are flagged in `results/stage3/lung_mask_summary.csv` (one lung under 5% of the image or under 40% of the other lung) and shown in `lung_masks_flagged.png` for the eye check.
+- **Grad-CAM** (`src/explain/gradcam.py`): one function `grad_cam(model, images, layer)` for both models. It explains the **predicted** class: +logit when the image is predicted PNEUMONIA, −logit when predicted NORMAL (#21). Layers (post-ReLU, `GRADCAM_LAYER`): custom CNN `features.block5.relu2` (256 × 14 × 14), DenseNet-121 `relu` (1024 × 7 × 7). The custom CNN entry in `src/config.py` (`features.block5.conv2`) is the same convolution before its BatchNorm and ReLU; the post-ReLU output is the standard Grad-CAM input, so Stage 3 uses `relu2`.
+- **Attention metric** (`src/explain/attention.py`): `attention_in_lung(cams, masks)` = heatmap inside the lung mask / whole heatmap. It is reported next to its chance level `lung_area` (what an evenly spread heatmap would score) and `border_fraction` (share in the outer 10% band, where text markers sit). Stage 4 calls the same function on the masked model.
+- `run_gradcam.py` runs both models on all 624 test images, first checks that its test metrics equal the committed Stage 1/2 numbers (right weights loaded), and fills `attention_in_lung` in `results/stage3_metrics.csv`. Figures use a fixed sample of 50 test images (25 per class, up to 8 per class misclassified by at least one model, the same images for both models): `results/stage3/sample_images.csv`.
 
 ## Shared files (Google Drive)
 
