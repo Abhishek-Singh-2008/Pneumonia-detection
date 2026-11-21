@@ -23,13 +23,16 @@ How each mask is made, and why it lines up with the Grad-CAM heatmaps:
 Run from the repo root (GPU recommended; Kaggle with Internet ON, because the PSPNet weights are downloaded
 on first use):
     python -m src.masking.lung_masks                      # all images; skips masks that already exist
-    python -m src.masking.lung_masks --limit 40           # quick try on 40 images
+    python -m src.masking.lung_masks --limit 40           # quick try on 40 images; its summary and figures go to
+                                                          # <out-dir>_quick_test/, never to results/stage3/
     python -m src.masking.lung_masks --help
 
 Writes:
     <out-dir>/{image_id}.png                     the masks (NOT committed; zip and upload to the team Drive)
     <out-dir>/areas.csv                          left and right lung area of every mask (used for the flags)
     <out-dir>.zip                                the same folder zipped for Drive, with --zip
+  The three results/stage3/ files below are written by FULL runs only; a --limit run writes them to
+  <out-dir>_quick_test/ instead, so a quick try can never overwrite the committed full-dataset results.
     results/stage3/lung_mask_summary.csv         one row per image: total, left and right lung area, and a "flag"
                                                  for masks that look implausible (e.g. a lung missed because it is
                                                  white from pneumonia); flagged masks must be looked at by eye
@@ -228,7 +231,9 @@ def parse_args():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--out-dir", type=Path, default=default_out_dir(), help="folder for the {image_id}.png masks")
     p.add_argument("--batch-size", type=int, default=16)
-    p.add_argument("--limit", type=int, default=None, help="only the first N images (for a quick try)")
+    p.add_argument("--limit", type=int, default=None,
+                   help="only the first N images (for a quick try); the summary and figures then go to "
+                        "<out-dir>_quick_test/ instead of results/stage3/, so the committed results are never overwritten")
     p.add_argument("--overwrite", action="store_true", help="re-make masks that already exist")
     p.add_argument("--zip", action="store_true", help="also write <out-dir>.zip for the team Drive")
     return p.parse_args()
@@ -282,17 +287,26 @@ def main() -> None:
     large = summary[["left_lung_area", "right_lung_area"]].max(axis=1)
     summary["flag"] = ((summary["lung_area"] < FLAG_MIN_TOTAL) | (summary["lung_area"] > FLAG_MAX_TOTAL)
                        | (small < FLAG_MIN_ONE_LUNG) | (small < FLAG_MIN_LUNG_RATIO * large))
-    STAGE3_DIR.mkdir(parents=True, exist_ok=True)
+    # Where the summary and figures go. A full run writes the committed files in results/stage3/. A --limit run
+    # covers only some images, so it must NEVER overwrite those committed full-dataset results (PR #25 review):
+    # it writes to a separate folder NEXT TO the mask folder instead (next to, not inside, so it never ends up
+    # in the lung_masks.zip shared on Drive).
+    if args.limit:
+        report_dir = args.out_dir.parent / f"{args.out_dir.name}_quick_test"
+        print(f"--limit run: summary and figures go to {report_dir}, results/stage3/ is not touched")
+    else:
+        report_dir = STAGE3_DIR
+    report_dir.mkdir(parents=True, exist_ok=True)
     cols = ["image_id", "split", "label", "lung_area", "left_lung_area", "right_lung_area", "flag"]
-    summary[cols].round(4).to_csv(STAGE3_DIR / "lung_mask_summary.csv", index=False, lineterminator="\n")
+    summary[cols].round(4).to_csv(report_dir / "lung_mask_summary.csv", index=False, lineterminator="\n")
 
     # Figures for the eye check: a seeded random sample, and the flagged masks (most extreme areas first).
     rng = np.random.RandomState(SEED)
     sample = summary.iloc[rng.permutation(len(summary))[:24]]
-    save_overlay_grid(sample, data_root, args.out_dir, STAGE3_DIR / "lung_masks_random.png",
+    save_overlay_grid(sample, data_root, args.out_dir, report_dir / "lung_masks_random.png",
                       "Lung masks: 24 random images (seed 42)")
     flagged = summary[summary["flag"]].sort_values("lung_area")
-    save_overlay_grid(flagged, data_root, args.out_dir, STAGE3_DIR / "lung_masks_flagged.png",
+    save_overlay_grid(flagged, data_root, args.out_dir, report_dir / "lung_masks_flagged.png",
                       f"Flagged lung masks ({len(flagged)} of {len(summary)}), smallest area first")
 
     print(summary.groupby(["split", "label"])["lung_area"].describe().round(3).to_string())
