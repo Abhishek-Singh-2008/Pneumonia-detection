@@ -162,7 +162,7 @@ python -m src.evaluate_densenet                                        # 2.3 tes
 - Model: `src/models/densenet121.py`, ImageNet-pretrained DenseNet-121, final 1000-class layer replaced by one logit (6.95 M parameters). Same preprocessing as the baseline (ImageNet mean/std, grayscale → 3 channels), so nothing in the pipeline changes.
 - **Phase A** (`train_densenet.py`): backbone frozen (BatchNorm kept in eval mode), only 1,025 parameters trained. Adam lr 1e-3, batch 32, early stopping on val loss. Val AUC 0.990.
 - **Phase B** (`finetune_densenet.py`): starts from the Phase A weights, all layers trained with a low learning rate (Adam, weight decay 1e-4, ReduceLROnPlateau, early stopping on val loss, patience 4).
-- **Tuning (val only):** three runs, the best one is chosen by the lowest **val loss**. The test set is not used for any choice and is evaluated once, for the chosen model.
+- **Tuning (val only):** three runs, the best one is chosen by the lowest **val loss**. The val AUCs (0.998 to 0.9995) are too close to separate the runs, which is why val loss is the selection criterion. The test set is not used for any choice and is evaluated once, for the chosen model.
 
   | Run | Learning rate | Batch size | Best epoch | Val loss | Val AUC |
   |---|---|---|---|---|---|
@@ -170,7 +170,7 @@ python -m src.evaluate_densenet                                        # 2.3 tes
   | `lr1e-4` | 1e-4 | 32 | 2 | 0.0206 | 0.9994 |
   | `lr5e-5` | 5e-5 | 32 | 8 | 0.0278 | 0.9984 |
 
-- Grad-CAM layer: `features.norm5`, the final 1024 × 7 × 7 feature map (`src.config.LAST_CONV_LAYER["densenet121"]`). The ReLU after it is not in-place, so Grad-CAM hooks see unmodified values.
+- Grad-CAM layer: `relu`, the named ReLU module after the last feature map. Its output is the **post-ReLU** 1024 × 7 × 7 map (`src.config.LAST_CONV_LAYER["densenet121"]`; changed from `features.norm5` after the PR #24 review). It is not in-place, so Grad-CAM hooks see unmodified values. Get it with `model.get_submodule("relu")`. The module has no parameters, so the saved weights load unchanged.
 - Outputs: `results/stage2_metrics.csv` (val and test, agreed columns), `results/stage2_comparison.csv` (baseline vs DenseNet-121 on the test set), `results/stage2_phaseA/`, `results/stage2_phaseB/` (every run + `tuning.csv`), `results/stage2_densenet/` (predictions per `image_id`, confusion matrices, ROC, settings).
 - Weights: `densenet121_phaseA_best.pth` and `densenet121_phaseB_lr1e-4_bs16_best.pth` (final model) in the shared Google Drive folder. Load with:
   ```python
@@ -205,7 +205,7 @@ Full metrics (with precision and the confusion matrix, val and test) are in `res
 
 ### Findings so far
 - **Val–test gap (Stage 1):** the baseline reaches 0.968 accuracy on val but 0.801 on test. It predicts 117 of 234 NORMAL test images as pneumonia while missing only 7 of 390 pneumonia images. The val split comes from the same distribution as train; the official test set differs. Nothing was tuned on test.
-- **DenseNet-121 vs baseline (Stage 2):** on the same test set, DenseNet-121 raises accuracy from 0.801 to 0.873 and AUC from 0.902 to 0.971. False positives drop from 117 to 78 and only 1 of 390 pneumonia images is missed (baseline: 7). The ImageNet-pretrained backbone gives better features than a CNN trained from scratch on about 4,500 images. A val–test gap remains (val accuracy 0.985 vs test 0.873), and 78 NORMAL test images are still predicted as pneumonia, which makes them a good target for the Grad-CAM analysis.
+- **DenseNet-121 vs baseline (Stage 2):** on the same test set, DenseNet-121 raises accuracy from 0.801 to 0.873 and AUC from 0.902 to 0.971. False positives drop from 117 to 78 and only 1 of 390 pneumonia images is missed (baseline: 7). The ImageNet-pretrained backbone gives better features than a CNN trained from scratch on about 4,500 images. A val–test gap remains, as in Stage 1: val accuracy 0.985 vs test 0.873, and precision 0.998 on val vs 0.833 on test. 78 of 234 NORMAL test images (about a third) are still predicted as pneumonia, which makes them a good target for the Grad-CAM analysis. The val numbers (AUC 0.9995) are very high because val comes from the same distribution as train, so we do not rely on val alone: the test set is the number that matters.
 - **Possible shortcuts in the raw data ([#22](https://github.com/Abhishek-Singh-2008/Pneumonia-detection/issues/22)):** NORMAL images are wider than tall by about 1.2×, PNEUMONIA images by about 1.5×, so the plain 224×224 resize distorts the two classes differently. All RGB files are PNEUMONIA; this cue is removed by converting every image to grayscale first.
 
 ## Working rules

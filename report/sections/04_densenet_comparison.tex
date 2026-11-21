@@ -37,6 +37,7 @@ Mixed precision is used on the GPU, and all runs use seed 42.
 We tuned the learning rate and the batch size of Phase~B with three runs (\cref{tab:tuning}).
 The model is selected by the lowest \emph{validation} loss; the test set is not used for any choice and is evaluated once, for the selected model only.
 The selected run uses a learning rate of $10^{-4}$ and batch size 16 (best epoch 3).
+The validation AUCs of the three runs (0.998 to 0.9995) are too close to separate them, which is why the validation loss is the selection criterion.
 
 \begin{table}[t]
   \centering
@@ -92,9 +93,10 @@ The pretrained backbone provides better features than a network trained from scr
 \end{figure}
 
 \paragraph{Validation--test gap.}
-Like the baseline, DenseNet-121 performs much better on the validation set (accuracy 0.985, AUC 0.9995) than on the test set (accuracy 0.873, AUC 0.971).
-The validation set is drawn from the same distribution as the training data, whereas the official test set differs from it, so the test metrics are the ones that matter.
-DenseNet-121 narrows the gap (0.111 accuracy difference, baseline: 0.167) but does not remove it, and 78 normal test images are still predicted as pneumonia.
+As for the baseline (\cref{sec:baseline}), DenseNet-121 performs much better on the validation set (accuracy 0.985, precision 0.998, AUC 0.9995) than on the test set (accuracy 0.873, precision 0.833, AUC 0.971).
+The validation set is drawn from the same distribution as the training data, whereas the official test set differs from it. An AUC of 0.9995 on validation is therefore not evidence that the model works on new data,
+and we do not rely on the validation set alone: it is used only to choose the model, and the test metrics are the ones we report.
+DenseNet-121 narrows the gap (0.111 accuracy difference, baseline: 0.167) but does not remove it: 78 of the 234 normal test images (about a third) are still predicted as pneumonia.
 Whether these errors come from image regions outside the lungs is examined with Grad-CAM in the next section. % TODO: link to Aman's Grad-CAM section (Stage 3)
 
 \paragraph{Limitations.}

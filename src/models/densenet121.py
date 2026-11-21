@@ -6,9 +6,10 @@ CheXNet-style transfer learning: take DenseNet-121 pretrained on ImageNet, repla
     Phase B (issue #8):       backbone unfrozen and fine-tuned with a small learning rate.
 
 Why we wrap torchvision's model instead of using it directly:
-- torchvision's DenseNet applies an IN-PLACE ReLU after the last feature map. A Grad-CAM
-  hook on that feature map would then see modified values. Our forward uses a normal ReLU
-  so Aman (Stage 3) can hook the layer in src.config.LAST_CONV_LAYER["densenet121"].
+- torchvision's DenseNet applies an IN-PLACE functional ReLU after the last feature map, which
+  cannot be hooked and would modify the tensor a hook sees. Our model has a named, non-in-place
+  `relu` module after `features`, so Aman (Stage 3) can hook it: the post-ReLU 1024 x 7 x 7 map
+  is src.config.LAST_CONV_LAYER["densenet121"] = "relu" (requested in the PR #24 review).
 - When the backbone is frozen we must also keep its BatchNorm layers in eval mode. The
   shared training loop calls model.train() every epoch, which would otherwise keep
   updating the BatchNorm running statistics of a "frozen" backbone.
@@ -28,8 +29,13 @@ class DenseNet121Classifier(nn.Module):
         # IMAGENET1K_V1 weights; this is why the shared pipeline uses ImageNet mean/std (#21 row 5).
         weights = DenseNet121_Weights.IMAGENET1K_V1 if pretrained else None
         backbone = densenet121(weights=weights)
-        # `features` ends with norm5, a BatchNorm that outputs the final 1024 x 7 x 7 feature map.
+        # `features` ends with norm5, a BatchNorm that outputs the final 1024 x 7 x 7 feature map
+        # BEFORE the ReLU.
         self.features = backbone.features
+        # Named, NOT in-place ReLU that follows norm5. Its output is the post-ReLU 1024 x 7 x 7 map that
+        # Grad-CAM should use (hook `relu`, see src.config.LAST_CONV_LAYER["densenet121"]; PR #24 review).
+        # It has no parameters, so checkpoints saved before it was added still load unchanged.
+        self.relu = nn.ReLU()
         self.pool = nn.AdaptiveAvgPool2d(1)
         self.dropout = nn.Dropout(dropout)
         # The only new layer: 1024 pooled features -> 1 logit (sigmoid gives P(PNEUMONIA)).
@@ -39,7 +45,7 @@ class DenseNet121Classifier(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Returns logits of shape (N, 1)."""
         x = self.features(x)
-        x = torch.relu(x)  # NOT in-place, so Grad-CAM hooks on `features.norm5` see clean tensors
+        x = self.relu(x)  # a module (not torch.relu) so Grad-CAM can hook it; not in-place, output stays intact
         x = self.pool(x).flatten(1)
         return self.classifier(self.dropout(x))
 
