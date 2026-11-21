@@ -1,0 +1,9 @@
+n,image_id,model,label_name,prob_pneumonia,pred,attention_in_lung,border_fraction,note
+1,NORMAL_test_NORMAL2-IM-0252-0001,densenet121,NORMAL,0.9998,1,0.3858,0.4552,false positive: heat on the 'KV59' label and the 'R' marker
+2,NORMAL_test_NORMAL2-IM-0221-0001,densenet121,NORMAL,0.9985,1,0.1553,0.4788,false positive: heat on the timestamp (top right)
+3,PNEUMONIA_test_person28_virus_62,densenet121,PNEUMONIA,1.0,1,0.2163,0.4423,"correct, but heat on the timestamp (top right)"
+4,PNEUMONIA_test_person60_virus_117,densenet121,PNEUMONIA,0.9999,1,0.2255,0.4469,"correct, but heat on the scanner text block"
+5,NORMAL_test_NORMAL2-IM-0206-0001,custom_cnn,NORMAL,0.9853,1,0.4233,0.3307,false positive: hot spot on the 'R' marker
+6,NORMAL_test_IM-0022-0001,custom_cnn,NORMAL,0.9939,1,0.4382,0.2903,false positive: hot spot on the 'R' marker
+7,PNEUMONIA_test_person141_bacteria_677,custom_cnn,PNEUMONIA,0.9446,1,0.055,0.5117,"correct, but heat on the 'R' marker and an electrode"
+8,PNEUMONIA_test_person118_bacteria_560,custom_cnn,PNEUMONIA,0.9598,1,0.0673,0.3495,"correct, but heat on the arm at the image edge"

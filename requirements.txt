@@ -9,3 +9,5 @@ matplotlib==3.10.0
 Pillow==13.0.0
 # Only for downloading the dataset outside Kaggle
 kaggle
+# Stage 3.2 (Aman): pretrained lung segmentation model (PSPNet); not preinstalled on Kaggle
+torchxrayvision==1.5.7

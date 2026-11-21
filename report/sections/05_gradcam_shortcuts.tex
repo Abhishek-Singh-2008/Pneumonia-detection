@@ -1,0 +1,150 @@
+% =====================================================================
+% Grad-CAM, lung masks, attention metric and shortcut findings  (author: Aman Singh, Stage 3)
+% Every number below comes from results/ in the repository:
+%   results/stage3_metrics.csv, results/stage3/attention_summary.csv, results/stage3/attention_robustness.csv,
+%   results/stage3/lung_mask_summary.csv, results/stage3/lung_mask_eye_check.csv (eye check of the 24 random masks),
+%   results/stage3/shortcut_examples.csv (the 8 hand-picked examples), results/stage3/settings.json
+% Figures to upload to Overleaf (keep these paths):
+%   figures/stage3/lung_masks_random.png   <- results/stage3/lung_masks_random.png
+%   figures/stage3/attention_boxplot.png   <- results/stage3/attention_boxplot.png
+%   figures/stage3/shortcut_examples.png   <- results/stage3/shortcut_examples.png
+% Labels used from other sections: sec:data-preproc, sec:data-eda, sec:densenet, tab:comparison
+% Citation keys: selvaraju2017gradcam, geirhos2020shortcut, zech2018variable, degrave2021ai (references_abhishek.bib);
+%   zhao2017pspnet, lian2021chestxdet, wang2017chestxray8, cohen2022torchxrayvision, wang2020scorecam (references_aman.bib)
+% =====================================================================
+\section{Where Do the Models Look? Grad-CAM and Lung Attention}
+\label{sec:gradcam}
+
+Both classifiers reach a high test AUC (\cref{tab:comparison}), but a high score does not show that a model uses the lungs.
+In this section we measure where the custom CNN and DenseNet-121 look, and how much of that attention falls on the lungs.
+
+\subsection{Grad-CAM for a single-logit classifier}
+\label{sec:gradcam-method}
+Grad-CAM~\cite{selvaraju2017gradcam} explains a decision with the feature maps $A^k$ ($k=1,\dots,K$) of a late convolutional layer.
+Each map is weighted by the average gradient of the explained score $s$, and the weighted sum is passed through a ReLU:
+\begin{equation}
+  \alpha_k = \frac{1}{hw}\sum_{i,j}\frac{\partial s}{\partial A^k_{ij}}, \qquad
+  L = \mathrm{ReLU}\Big(\sum_k \alpha_k A^k\Big).
+  \label{eq:gradcam}
+\end{equation}
+Our models have one output logit $z$ with $\sigma(z)=P(\text{pneumonia})$ and no separate NORMAL output.
+We therefore explain the \emph{predicted} class: $s=z$ when the image is predicted PNEUMONIA ($\sigma(z)\ge0.5$) and $s=-z$ when it is predicted NORMAL,
+so every heatmap shows the evidence for the class the model chose.
+We hook the activations after the last ReLU, which are the features the classifier actually receives:
+\texttt{features.block5.relu2} for the custom CNN ($256\times14\times14$) and the post-ReLU feature map of DenseNet-121 ($1024\times7\times7$).
+The map $L$ is upsampled bilinearly to $224\times224$, the input size, so it lines up pixel by pixel with the lung masks.
+A toy model with a known answer confirms that the heatmap lands on the right image region for both predicted classes.
+
+\subsection{Lung masks}
+\label{sec:gradcam-masks}
+We segment the lungs of all 5,856 images with the pretrained PSPNet~\cite{zhao2017pspnet} from TorchXRayVision~\cite{cohen2022torchxrayvision},
+which was trained on the ChestX-Det annotations~\cite{lian2021chestxdet} of adult NIH chest X-rays~\cite{wang2017chestxray8}.
+We join its left- and right-lung outputs into one mask.
+The classifiers see the whole image squashed to $224\times224$ (\cref{sec:data-preproc}), so we also resize the whole image without cropping before segmentation,
+and resize the mask back to $224\times224$ with nearest-neighbour interpolation to keep it binary.
+\Cref{fig:masks} shows masks for 24 random images, which we checked by eye.
+19 of them are correct. The other 5 are all PNEUMONIA images (out of 17 in the sample), and each misses part of a lung, from a small notch at the lung base to almost a whole lung.
+All 7 NORMAL masks are correct.
+
+The segmentation model was not trained on children, and it fails on some pneumonia images: a lung that is white from consolidation is partly or entirely missed.
+We flag a mask when the lungs cover less than 8\% or more than 60\% of the image, or when one lung is under 5\% of the image or under 40\% of the other lung.
+Of the 5,856 masks, 226 are flagged; 225 of them are PNEUMONIA images (181 train, 25 validation, 19 test).
+The flag only catches gross failures: of the 5 imperfect masks in the random sample, only 1 is flagged.
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figures/stage3/lung_masks_random.png}
+  \caption{Lung masks (red, outlined in green) for 24 random images, drawn on the $224\times224$ input the classifiers see. Most masks cover both lung fields; failures occur on pneumonia images where consolidated lung is missed.}
+  \label{fig:masks}
+\end{figure*}
+
+\subsection{Lung-attention metric}
+\label{sec:gradcam-metric}
+For a heatmap $L\ge0$ and a lung mask $M\in\{0,1\}$ of the same size, the lung attention is the share of the heatmap inside the lungs:
+\begin{equation}
+  \text{attention\_in\_lung} = \frac{\sum_{i,j} L_{ij} M_{ij}}{\sum_{i,j} L_{ij}}.
+  \label{eq:attention}
+\end{equation}
+This is the energy-based pointing game of Score-CAM~\cite{wang2020scorecam} with the lung mask in place of a bounding box.
+The value alone is hard to read: a heatmap spread evenly over the image would score the lung area $\frac{1}{hw}\sum_{i,j}M_{ij}$, about 38\% on our test images.
+We therefore report the lung area as the chance level next to each result, and the \emph{lift}, the ratio of the two, where a lift above 1 means more attention on the lungs than chance.
+We also report the \emph{border share}, the part of the heatmap in the outer 10\% of the image on each side, where text markers and scanner labels sit;
+an even heatmap has a border share of $1-0.8^2=36\%$.
+All values are computed on the 624 test images for both models.
+
+\subsection{Results}
+\label{sec:gradcam-results}
+\begin{table}[t]
+  \centering
+  \caption{Lung attention on the test set (mean over images). Lung area is the chance level: the score of an evenly spread heatmap. Lift $>1$ is the share of images with more attention on the lungs than chance.}
+  \label{tab:attention}
+  \small
+  \begin{tabular}{llrrrr}
+    \toprule
+    Model & Images & Attention & Lung area & Lift $>1$ & Border \\
+    \midrule
+    Custom CNN   & all (624)       & 43.4\% & 37.7\% & 76.8\% & 26.8\% \\
+                 & NORMAL (234)    & 42.3\% & 39.4\% & 64.5\% & 27.7\% \\
+                 & PNEUMONIA (390) & 44.1\% & 36.7\% & 84.1\% & 26.2\% \\
+    \midrule
+    DenseNet-121 & all (624)       & 39.5\% & 37.7\% & 60.1\% & 30.9\% \\
+                 & NORMAL (234)    & 42.9\% & 39.4\% & 68.8\% & 28.5\% \\
+                 & PNEUMONIA (390) & 37.5\% & 36.7\% & 54.9\% & 32.4\% \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\Cref{tab:attention} shows that both models put only slightly more of their heatmap on the lungs than an evenly spread heatmap would:
+43.4\% for the custom CNN and 39.5\% for DenseNet-121, against a lung area of 37.7\%.
+The more accurate model is the one closer to chance.
+On PNEUMONIA images, DenseNet-121 puts 37.5\% of its attention on the lungs, which cover 36.7\% of the image, and only 54.9\% of these images have a lift above~1.
+High accuracy therefore does not mean that the model bases its decision on the lungs.
+\Cref{fig:attention-box} shows the spread per class and for correct and wrong predictions.
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figures/stage3/attention_boxplot.png}
+  \caption{Lung attention per test image, by true class and correct or wrong prediction. The red dash is the mean lung area of each group, the chance level.}
+  \label{fig:attention-box}
+\end{figure*}
+
+\subsection{Shortcut examples}
+\label{sec:gradcam-shortcuts}
+We looked through the test images with the least attention on the lungs, the most attention on the border, and the most confident false positives of each model,
+and picked eight clear examples (\cref{fig:shortcuts}). They show three kinds of shortcut.
+
+\paragraph{Burned-in text (DenseNet-121).}
+For NORMAL images that DenseNet-121 predicts as PNEUMONIA with probability 1.00, the heatmap sits on text burned into the image instead of the lungs:
+the \texttt{KV59} exposure label in the bottom-right corner (\cref{fig:shortcuts}, panel~1, together with the ``R'' marker) and a timestamp in the top-right corner (panel~2, 15.5\% of the heatmap on the lungs).
+The same corner text also drives \emph{correct} PNEUMONIA predictions: in panels~3 and~4 the model is right with probability 1.00, but its heatmap is on a timestamp and on the scanner's text block,
+with only 22\% and 23\% on the lungs. These are right answers for the wrong reason, which a test score cannot reveal.
+
+\paragraph{The laterality marker (custom CNN).}
+The custom CNN's confident false positives often have a hot spot on the ``R'' marker in the top-left corner (panels~5 and~6, probability 0.99).
+For the correct PNEUMONIA prediction in panel~7, the heat is on the marker and an ECG electrode, and only 5.5\% of it is on the lungs.
+
+\paragraph{Body regions outside the lungs.}
+In panel~8, the custom CNN predicts PNEUMONIA correctly while its heatmap lies on the arm at the edge of the image (6.7\% on the lungs).
+
+The numbers agree with the pictures. On NORMAL images that are wrongly predicted as PNEUMONIA, the border share is 35.8\% for the custom CNN (19.6\% on correctly predicted NORMAL images)
+and 34.6\% for DenseNet-121 (25.4\% on correct ones).
+These findings match the shortcuts reported for chest X-ray classifiers by Zech~\etal~\cite{zech2018variable}, who found that models use laterality markers and other hospital-specific tokens,
+and by DeGrave~\etal~\cite{degrave2021ai}, and the general pattern of shortcut learning described by Geirhos~\etal~\cite{geirhos2020shortcut}.
+They also add to the recording differences between the classes found in the EDA (\cref{sec:data-eda}).
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figures/stage3/shortcut_examples.png}
+  \caption{Eight hand-picked shortcut examples: Grad-CAM of the predicted class over the test image, with the lung mask outlined in green. Panels 1--4 (DenseNet-121): heat on burned-in text, the \texttt{KV59} exposure label and timestamps, both for false positives (1, 2) and for correct PNEUMONIA predictions (3, 4). Panels 5--8 (custom CNN): heat on the ``R'' laterality marker (5--7), an ECG electrode (7) and the arm (8).}
+  \label{fig:shortcuts}
+\end{figure*}
+
+\subsection{Limitations}
+\label{sec:gradcam-limits}
+The lung masks come from a model trained on adult X-rays and can miss consolidated lung, so attention on diseased lung may be counted as outside the lungs.
+This affects PNEUMONIA images only. Leaving out the 19 flagged test images changes the mean lung attention by less than 0.01 for every model and class (largest change: custom CNN on PNEUMONIA images, 44.1\% to 44.7\%),
+but the flag misses partial errors: in the random sample, 4 of the 5 imperfect masks were not flagged.
+Because the missed parts are diseased lung, where a model should look, the lung attention on PNEUMONIA images is probably underestimated.
+DenseNet-121's heatmaps are computed on a $7\times7$ map (the custom CNN's on $14\times14$), and coarser maps spread out more after upsampling, which moves the lung attention towards the chance level.
+Grad-CAM shows which regions raised the score, not why, and it does not prove that the model would fail without them;
+\cref{sec:masking} tests this directly by training on lung-masked images. % TODO (Himanshu): check the label of the Stage 4 section

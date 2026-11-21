@@ -4,7 +4,7 @@
 
 We train a pneumonia classifier on paediatric chest X-rays and check whether it looks at the **lungs** or relies on **shortcuts** such as text markers, corners and image borders.
 
-> **Status:** Stage 1 (data pipeline + baseline CNN) is complete and under review in [PR #23](https://github.com/Abhishek-Singh-2008/Pneumonia-detection/pull/23). Stage 2 (DenseNet-121) is next. All design decisions are final and listed in the closing comment of [issue #21](https://github.com/Abhishek-Singh-2008/Pneumonia-detection/issues/21). The setup, run steps and results below get filled in as each stage is finished.
+> **Status:** Stage 1 (data pipeline + baseline CNN) and Stage 2 (DenseNet-121) are complete and merged ([PR #23](https://github.com/Abhishek-Singh-2008/Pneumonia-detection/pull/23), [PR #24](https://github.com/Abhishek-Singh-2008/Pneumonia-detection/pull/24)). Stage 3 (lung masks, Grad-CAM, lung-attention metric) is complete and under review in [PR #25](https://github.com/Abhishek-Singh-2008/Pneumonia-detection/pull/25). Stage 4 (lung-masked training, final comparison, report) is next. All design decisions are final and listed in the closing comment of [issue #21](https://github.com/Abhishek-Singh-2008/Pneumonia-detection/issues/21). The setup, run steps and results below get filled in as each stage is finished.
 
 ---
 
@@ -106,6 +106,7 @@ After unzipping, `data/chest_xray/{train,val,test}/` must exist. Data stored els
 | Notebook | Stage | What it does |
 |---|---|---|
 | `notebooks/01_eda.ipynb` | 1.1 | Class counts, patients, image sizes and modes, sample grid → `results/stage1_eda/` |
+| `notebooks/03_gradcam_masks.ipynb` | 3 | Self-checks, lung masks for all images, Grad-CAM + attention metric for both models, figures → `results/stage3/` |
 
 ### Splits (Stage 1.2)
 The split CSVs are already committed in `data/splits/`. **Every stage uses these files; do not make new splits.**
@@ -179,6 +180,20 @@ python -m src.evaluate_densenet                                        # 2.3 tes
   model = DenseNet121Classifier(pretrained=False); model.load_state_dict(ckpt["model_state"])
   ```
 
+### Lung masks, Grad-CAM and the attention metric (Stage 3)
+Easiest: run `notebooks/03_gradcam_masks.ipynb` on Kaggle (GPU and Internet on). The same steps from a terminal:
+```bash
+pip install torchxrayvision                       # pretrained lung segmentation model (not preinstalled on Kaggle)
+python -m src.explain.check_explain               # self-checks on synthetic data, no dataset needed
+python -m src.masking.lung_masks --zip            # 3.2 lung masks for all 5,856 images + eye-check figures
+python -m src.explain.run_gradcam --checkpoint-dir <folder with both .pth files> --mask-dir <lung mask folder>   # 3.3
+```
+- **Lung masks** (`src/masking/lung_masks.py`): torchxrayvision's pretrained PSPNet (ChestX-Det, adult X-rays); its left and right lung outputs are joined. The whole image is resized without cropping, exactly like the classifier input, so masks line up pixel by pixel with the heatmaps. Saved as `{image_id}.png`, 224 × 224, binary (0 = background, 255 = lung, #21 row 14). Read them with `load_mask(mask_dir, image_id)` / `load_masks(...)`. The masks are on the team Drive ([`lung_masks.zip`](https://drive.google.com/file/d/1ijzEW5sEwMmEbyUQfpTLJ7Oehl5IKqpr/view?usp=sharing)), not in the repo.
+  - **Known limitation:** the segmentation model was trained on adult X-rays. On a pneumonia image where a lung is white from consolidation, it can miss most of that lung (seen on `PNEUMONIA_test_person100_bacteria_475` during testing). Heatmap mass on the missed part then counts as *outside* the lung, so `attention_in_lung` can be too low for pneumonia images. Such masks are flagged in `results/stage3/lung_mask_summary.csv` (one lung under 5% of the image or under 40% of the other lung) and shown in `lung_masks_flagged.png` for the eye check.
+- **Grad-CAM** (`src/explain/gradcam.py`): one function `grad_cam(model, images, layer)` for both models. It explains the **predicted** class: +logit when the image is predicted PNEUMONIA, −logit when predicted NORMAL (#21). Layers (post-ReLU, `GRADCAM_LAYER`): custom CNN `features.block5.relu2` (256 × 14 × 14), DenseNet-121 `relu` (1024 × 7 × 7). The custom CNN entry in `src/config.py` (`features.block5.conv2`) is the same convolution before its BatchNorm and ReLU; the post-ReLU output is the standard Grad-CAM input, so Stage 3 uses `relu2`.
+- **Attention metric** (`src/explain/attention.py`): `attention_in_lung(cams, masks)` = heatmap inside the lung mask / whole heatmap. It is reported next to its chance level `lung_area` (what an evenly spread heatmap would score) and `border_fraction` (share in the outer 10% band, where text markers sit). Stage 4 calls the same function on the masked model.
+- `run_gradcam.py` runs both models on all 624 test images, first checks that its test metrics equal the committed Stage 1/2 numbers (right weights loaded), and fills `attention_in_lung` in `results/stage3_metrics.csv`. Figures use a fixed sample of 50 test images (25 per class, up to 8 per class misclassified by at least one model, the same images for both models): `results/stage3/sample_images.csv`.
+
 ## Shared files (Google Drive)
 
 Team folder: https://drive.google.com/drive/folders/1-IldsdQnswOB-PVVcwLyYlijN_4TlTYA?usp=sharing
@@ -188,6 +203,7 @@ Team folder: https://drive.google.com/drive/folders/1-IldsdQnswOB-PVVcwLyYlijN_4
 | `custom_cnn_best.pth` | 1 | Custom CNN baseline, best epoch by val loss |
 | `densenet121_phaseA_best.pth` | 2 | DenseNet-121 after Phase A (head only) |
 | `densenet121_phaseB_lr1e-4_bs16_best.pth` | 2 | DenseNet-121 final model (fine-tuned, chosen by val loss) |
+| [`lung_masks.zip`](https://drive.google.com/file/d/1ijzEW5sEwMmEbyUQfpTLJ7Oehl5IKqpr/view?usp=sharing) | 3 | Lung masks for all 5,856 images: `{image_id}.png`, 224 × 224, 0 = background, 255 = lung, plus `areas.csv` (left/right lung area). Unzip and pass the folder as `mask_dir` to `src.masking.lung_masks.load_mask` |
 
 Later stages add their files here (lung masks, masked-model weights).
 
@@ -197,16 +213,18 @@ Later stages add their files here (lung masks, masked-model weights).
 
 | Model | Training data | Accuracy | Recall | F1 | AUC | Lung attention % |
 |---|---|---|---|---|---|---|
-| Custom CNN | Unmasked | 0.8013 | 0.9821 | 0.8607 | 0.9016 | – |
-| DenseNet-121 | Unmasked | 0.8734 | 0.9974 | 0.9078 | 0.9713 | – |
+| Custom CNN | Unmasked | 0.8013 | 0.9821 | 0.8607 | 0.9016 | 43.4% |
+| DenseNet-121 | Unmasked | 0.8734 | 0.9974 | 0.9078 | 0.9713 | 39.5% |
 | DenseNet-121 | Lung-masked | – | – | – | – | – |
 
 Full metrics (with precision and the confusion matrix, val and test) are in `results/stageN_metrics.csv`.
+Lung attention = mean share of the Grad-CAM heatmap inside the lung mask over the 624 test images (`results/stage3_metrics.csv`). The lungs cover 37.7% of the image on average, which is what an evenly spread heatmap would score.
 
 ### Findings so far
 - **Val–test gap (Stage 1):** the baseline reaches 0.968 accuracy on val but 0.801 on test. It predicts 117 of 234 NORMAL test images as pneumonia while missing only 7 of 390 pneumonia images. The val split comes from the same distribution as train; the official test set differs. Nothing was tuned on test.
 - **DenseNet-121 vs baseline (Stage 2):** on the same test set, DenseNet-121 raises accuracy from 0.801 to 0.873 and AUC from 0.902 to 0.971. False positives drop from 117 to 78 and only 1 of 390 pneumonia images is missed (baseline: 7). The ImageNet-pretrained backbone gives better features than a CNN trained from scratch on about 4,500 images. A val–test gap remains, as in Stage 1: val accuracy 0.985 vs test 0.873, and precision 0.998 on val vs 0.833 on test. 78 of 234 NORMAL test images (about a third) are still predicted as pneumonia, which makes them a good target for the Grad-CAM analysis. The val numbers (AUC 0.9995) are very high because val comes from the same distribution as train, so we do not rely on val alone: the test set is the number that matters.
 - **Possible shortcuts in the raw data ([#22](https://github.com/Abhishek-Singh-2008/Pneumonia-detection/issues/22)):** NORMAL images are wider than tall by about 1.2×, PNEUMONIA images by about 1.5×, so the plain 224×224 resize distorts the two classes differently. All RGB files are PNEUMONIA; this cue is removed by converting every image to grayscale first.
+- **Where the models look (Stage 3):** both models put only a little more of their Grad-CAM heatmap on the lungs than an evenly spread heatmap would: 43.4% (custom CNN) and 39.5% (DenseNet-121) against a lung area of 37.7% (`results/stage3/attention_summary.csv`). The more accurate DenseNet-121 is the closer of the two to chance, especially on PNEUMONIA images (37.5% vs 36.7% lung area). Its most confident false positives (NORMAL test images predicted PNEUMONIA with p = 1.00) put the heatmap on burned-in text: the "KV58"/"KV59"/"KV60" exposure labels in the bottom-right corner and timestamps in the top-right corner (`results/stage3/false_positives_densenet121.png`). This is direct evidence of shortcut learning. The same corner text also drives some *correct* PNEUMONIA predictions (right answer for the wrong reason), and the custom CNN often puts a hot spot on the "R" laterality marker; eight hand-picked examples are in `results/stage3/shortcut_examples.png`. Lung masks: 226 of 5,856 are flagged as implausible, 225 of them PNEUMONIA images where consolidated lung was missed; only 19 are test images, and leaving them out changes the averages by less than 0.01 (`results/stage3/attention_robustness.csv`). The flag misses partial errors, though: by eye, 19 of 24 random masks are correct and the 5 imperfect ones (all PNEUMONIA) include 4 unflagged ones (`results/stage3/lung_mask_eye_check.csv`), so lung attention on PNEUMONIA images is probably underestimated.
 
 ## Working rules
 
