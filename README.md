@@ -212,16 +212,18 @@ Later stages add their files here (lung masks, masked-model weights).
 
 | Model | Training data | Accuracy | Recall | F1 | AUC | Lung attention % |
 |---|---|---|---|---|---|---|
-| Custom CNN | Unmasked | 0.8013 | 0.9821 | 0.8607 | 0.9016 | – |
-| DenseNet-121 | Unmasked | 0.8734 | 0.9974 | 0.9078 | 0.9713 | – |
+| Custom CNN | Unmasked | 0.8013 | 0.9821 | 0.8607 | 0.9016 | 43.4% |
+| DenseNet-121 | Unmasked | 0.8734 | 0.9974 | 0.9078 | 0.9713 | 39.5% |
 | DenseNet-121 | Lung-masked | – | – | – | – | – |
 
 Full metrics (with precision and the confusion matrix, val and test) are in `results/stageN_metrics.csv`.
+Lung attention = mean share of the Grad-CAM heatmap inside the lung mask over the 624 test images (`results/stage3_metrics.csv`). The lungs cover 37.7% of the image on average, which is what an evenly spread heatmap would score.
 
 ### Findings so far
 - **Val–test gap (Stage 1):** the baseline reaches 0.968 accuracy on val but 0.801 on test. It predicts 117 of 234 NORMAL test images as pneumonia while missing only 7 of 390 pneumonia images. The val split comes from the same distribution as train; the official test set differs. Nothing was tuned on test.
 - **DenseNet-121 vs baseline (Stage 2):** on the same test set, DenseNet-121 raises accuracy from 0.801 to 0.873 and AUC from 0.902 to 0.971. False positives drop from 117 to 78 and only 1 of 390 pneumonia images is missed (baseline: 7). The ImageNet-pretrained backbone gives better features than a CNN trained from scratch on about 4,500 images. A val–test gap remains, as in Stage 1: val accuracy 0.985 vs test 0.873, and precision 0.998 on val vs 0.833 on test. 78 of 234 NORMAL test images (about a third) are still predicted as pneumonia, which makes them a good target for the Grad-CAM analysis. The val numbers (AUC 0.9995) are very high because val comes from the same distribution as train, so we do not rely on val alone: the test set is the number that matters.
 - **Possible shortcuts in the raw data ([#22](https://github.com/Abhishek-Singh-2008/Pneumonia-detection/issues/22)):** NORMAL images are wider than tall by about 1.2×, PNEUMONIA images by about 1.5×, so the plain 224×224 resize distorts the two classes differently. All RGB files are PNEUMONIA; this cue is removed by converting every image to grayscale first.
+- **Where the models look (Stage 3):** both models put only a little more of their Grad-CAM heatmap on the lungs than an evenly spread heatmap would: 43.4% (custom CNN) and 39.5% (DenseNet-121) against a lung area of 37.7% (`results/stage3/attention_summary.csv`). The more accurate DenseNet-121 is the closer of the two to chance, especially on PNEUMONIA images (37.5% vs 36.7% lung area). Its most confident false positives (NORMAL test images predicted PNEUMONIA with p = 1.00) put the heatmap on burned-in text: the "KV58"/"KV59"/"KV60" exposure labels in the bottom-right corner and timestamps in the top-right corner (`results/stage3/false_positives_densenet121.png`). This is direct evidence of shortcut learning. Lung masks: 226 of 5,856 are flagged as implausible, 225 of them PNEUMONIA images where consolidated lung was missed; only 19 are test images, and leaving them out changes the averages by less than 0.01.
 
 ## Working rules
 
