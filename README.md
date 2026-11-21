@@ -70,6 +70,9 @@ Pneumonia-detection/
 │   ├── metrics.py         # shared metrics + metrics CSV writer
 │   ├── train.py           # shared training loop (early stopping on val loss) and predict()
 │   ├── train_baseline.py  # Stage 1.4: train + evaluate the custom CNN
+│   ├── train_densenet.py  # Stage 2.1: DenseNet-121 Phase A (head only)
+│   ├── finetune_densenet.py  # Stage 2.2: DenseNet-121 Phase B (fine-tuning + tuning runs)
+│   ├── evaluate_densenet.py  # Stage 2.3: test evaluation + comparison with the baseline
 │   ├── data/              # Stage 1: index.py, splits.py, dataset.py, check_loader.py
 │   ├── models/            # Stage 1 & 2: custom_cnn.py, DenseNet-121
 │   ├── explain/           # Stage 3 (Aman): Grad-CAM, lung-attention metric
@@ -147,6 +150,35 @@ python -m src.train_baseline          # GPU recommended; a few minutes on a Kagg
   ```
 - The shared training loop `src/train.py` and metrics `src/metrics.py` are reused in Stage 2.
 
+### DenseNet-121 (Stage 2)
+CheXNet-style transfer learning on the same splits, loader and metrics as the baseline. Run in this order (GPU recommended; each step takes a few minutes on a Kaggle T4):
+```bash
+python -m src.train_densenet                                           # 2.1 Phase A: backbone frozen, only the new 1-logit layer
+python -m src.finetune_densenet --run-name lr1e-4_bs16 --batch-size 16 # 2.2 Phase B: whole network, low learning rate
+python -m src.finetune_densenet --run-name lr1e-4                      # other tuning runs (see the tuning table below)
+python -m src.finetune_densenet --run-name lr5e-5 --lr 5e-5
+python -m src.evaluate_densenet                                        # 2.3 test evaluation + comparison with the baseline
+```
+- Model: `src/models/densenet121.py`, ImageNet-pretrained DenseNet-121, final 1000-class layer replaced by one logit (6.95 M parameters). Same preprocessing as the baseline (ImageNet mean/std, grayscale → 3 channels), so nothing in the pipeline changes.
+- **Phase A** (`train_densenet.py`): backbone frozen (BatchNorm kept in eval mode), only 1,025 parameters trained. Adam lr 1e-3, batch 32, early stopping on val loss. Val AUC 0.990.
+- **Phase B** (`finetune_densenet.py`): starts from the Phase A weights, all layers trained with a low learning rate (Adam, weight decay 1e-4, ReduceLROnPlateau, early stopping on val loss, patience 4).
+- **Tuning (val only):** three runs, the best one is chosen by the lowest **val loss**. The test set is not used for any choice and is evaluated once, for the chosen model.
+
+  | Run | Learning rate | Batch size | Best epoch | Val loss | Val AUC |
+  |---|---|---|---|---|---|
+  | `lr1e-4_bs16` (chosen) | 1e-4 | 16 | 3 | 0.0139 | 0.9995 |
+  | `lr1e-4` | 1e-4 | 32 | 2 | 0.0206 | 0.9994 |
+  | `lr5e-5` | 5e-5 | 32 | 8 | 0.0278 | 0.9984 |
+
+- Grad-CAM layer: `features.norm5`, the final 1024 × 7 × 7 feature map (`src.config.LAST_CONV_LAYER["densenet121"]`). The ReLU after it is not in-place, so Grad-CAM hooks see unmodified values.
+- Outputs: `results/stage2_metrics.csv` (val and test, agreed columns), `results/stage2_comparison.csv` (baseline vs DenseNet-121 on the test set), `results/stage2_phaseA/`, `results/stage2_phaseB/` (every run + `tuning.csv`), `results/stage2_densenet/` (predictions per `image_id`, confusion matrices, ROC, settings).
+- Weights: `densenet121_phaseA_best.pth` and `densenet121_phaseB_lr1e-4_bs16_best.pth` (final model) in the shared Google Drive folder. Load with:
+  ```python
+  from src.models.densenet121 import DenseNet121Classifier
+  ckpt = torch.load("densenet121_phaseB_lr1e-4_bs16_best.pth", map_location="cpu", weights_only=False)
+  model = DenseNet121Classifier(pretrained=False); model.load_state_dict(ckpt["model_state"])
+  ```
+
 ## Shared files (Google Drive)
 
 Team folder: https://drive.google.com/drive/folders/1-IldsdQnswOB-PVVcwLyYlijN_4TlTYA?usp=sharing
@@ -154,8 +186,10 @@ Team folder: https://drive.google.com/drive/folders/1-IldsdQnswOB-PVVcwLyYlijN_4
 | File | Stage | What it is |
 |---|---|---|
 | `custom_cnn_best.pth` | 1 | Custom CNN baseline, best epoch by val loss |
+| `densenet121_phaseA_best.pth` | 2 | DenseNet-121 after Phase A (head only) |
+| `densenet121_phaseB_lr1e-4_bs16_best.pth` | 2 | DenseNet-121 final model (fine-tuned, chosen by val loss) |
 
-Later stages add their files here (DenseNet-121 weights, lung masks, masked-model weights).
+Later stages add their files here (lung masks, masked-model weights).
 
 ## Results
 
@@ -164,13 +198,14 @@ Later stages add their files here (DenseNet-121 weights, lung masks, masked-mode
 | Model | Training data | Accuracy | Recall | F1 | AUC | Lung attention % |
 |---|---|---|---|---|---|---|
 | Custom CNN | Unmasked | 0.8013 | 0.9821 | 0.8607 | 0.9016 | – |
-| DenseNet-121 | Unmasked | – | – | – | – | – |
+| DenseNet-121 | Unmasked | 0.8734 | 0.9974 | 0.9078 | 0.9713 | – |
 | DenseNet-121 | Lung-masked | – | – | – | – | – |
 
 Full metrics (with precision and the confusion matrix, val and test) are in `results/stageN_metrics.csv`.
 
 ### Findings so far
 - **Val–test gap (Stage 1):** the baseline reaches 0.968 accuracy on val but 0.801 on test. It predicts 117 of 234 NORMAL test images as pneumonia while missing only 7 of 390 pneumonia images. The val split comes from the same distribution as train; the official test set differs. Nothing was tuned on test.
+- **DenseNet-121 vs baseline (Stage 2):** on the same test set, DenseNet-121 raises accuracy from 0.801 to 0.873 and AUC from 0.902 to 0.971. False positives drop from 117 to 78 and only 1 of 390 pneumonia images is missed (baseline: 7). The ImageNet-pretrained backbone gives better features than a CNN trained from scratch on about 4,500 images. A val–test gap remains (val accuracy 0.985 vs test 0.873), and 78 NORMAL test images are still predicted as pneumonia, which makes them a good target for the Grad-CAM analysis.
 - **Possible shortcuts in the raw data ([#22](https://github.com/Abhishek-Singh-2008/Pneumonia-detection/issues/22)):** NORMAL images are wider than tall by about 1.2×, PNEUMONIA images by about 1.5×, so the plain 224×224 resize distorts the two classes differently. All RGB files are PNEUMONIA; this cue is removed by converting every image to grayscale first.
 
 ## Working rules
