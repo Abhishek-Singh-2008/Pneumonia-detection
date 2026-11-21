@@ -39,7 +39,7 @@ Overleaf is the master copy. Files here are drafts for each member to paste in, 
    |---|---|
    | `figures/stage3/lung_masks_random.png` | `results/stage3/lung_masks_random.png` |
    | `figures/stage3/attention_boxplot.png` | `results/stage3/attention_boxplot.png` |
-   | `figures/stage3/false_positives_densenet121.png` | `results/stage3/false_positives_densenet121.png` |
+   | `figures/stage3/shortcut_examples.png` | `results/stage3/shortcut_examples.png` |
 
 4. The section refers to `\cref{sec:masking}` for Himanshu's Stage 4 section; adjust it to the real label. Ajit's `% TODO: link to Aman's Grad-CAM section` can now use `\cref{sec:gradcam}`.
 
