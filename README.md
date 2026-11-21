@@ -4,7 +4,7 @@
 
 We train a pneumonia classifier on paediatric chest X-rays and check whether it looks at the **lungs** or relies on **shortcuts** such as text markers, corners and image borders.
 
-> **Status:** Stage 1 (data pipeline + baseline CNN) is complete and under review in [PR #23](https://github.com/Abhishek-Singh-2008/Pneumonia-detection/pull/23). Stage 2 (DenseNet-121) is next. All design decisions are final and listed in the closing comment of [issue #21](https://github.com/Abhishek-Singh-2008/Pneumonia-detection/issues/21). The setup, run steps and results below get filled in as each stage is finished.
+> **Status:** Stage 1 (data pipeline + baseline CNN) and Stage 2 (DenseNet-121) are complete and merged ([PR #23](https://github.com/Abhishek-Singh-2008/Pneumonia-detection/pull/23), [PR #24](https://github.com/Abhishek-Singh-2008/Pneumonia-detection/pull/24)). Stage 3 (lung masks, Grad-CAM, lung-attention metric) is complete and under review in [PR #25](https://github.com/Abhishek-Singh-2008/Pneumonia-detection/pull/25). Stage 4 (lung-masked training, final comparison, report) is next. All design decisions are final and listed in the closing comment of [issue #21](https://github.com/Abhishek-Singh-2008/Pneumonia-detection/issues/21). The setup, run steps and results below get filled in as each stage is finished.
 
 ---
 
