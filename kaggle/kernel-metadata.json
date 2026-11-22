@@ -1,0 +1,13 @@
+{
+  "id": "KAGGLE_USERNAME/stage4-masked-training",
+  "title": "Stage 4 masked DenseNet-121 training",
+  "code_file": "run_masked_training.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": true,
+  "dataset_sources": ["paultimothymooney/chest-xray-pneumonia"],
+  "competition_sources": [],
+  "kernel_sources": []
+}
