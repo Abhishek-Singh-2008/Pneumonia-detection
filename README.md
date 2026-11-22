@@ -4,7 +4,7 @@
 
 We train a pneumonia classifier on paediatric chest X-rays and check whether it looks at the **lungs** or relies on **shortcuts** such as text markers, corners and image borders.
 
-> **Status:** Stages 1–3 are complete (Stage 3 is under review in [PR #25](https://github.com/Abhishek-Singh-2008/Pneumonia-detection/pull/25)). Stage 4.1 masked training and the Stage 4.2/4.3 Kaggle evaluation are complete; the final comparison and cross-test are recorded in `results/`. Stage 4 passed clean-clone validation and is ready for PR. The project report remains local. All design decisions are listed in the closing comment of [issue #21](https://github.com/Abhishek-Singh-2008/Pneumonia-detection/issues/21).
+> **Status:** Stages 1–3 are complete (Stage 3 merged in [PR #25](https://github.com/Abhishek-Singh-2008/Pneumonia-detection/pull/25)). Stage 4.1 masked training and the Stage 4.2/4.3 Kaggle evaluation are complete; the final comparison and cross-test are recorded in `results/`. The evaluator tests and existing Stage 3 checks pass from a fresh clone; Kaggle data and model weights remain external. The project report remains local. All design decisions are listed in the closing comment of [issue #21](https://github.com/Abhishek-Singh-2008/Pneumonia-detection/issues/21).
 
 ---
 
@@ -197,9 +197,17 @@ python -m src.explain.run_gradcam --checkpoint-dir <folder with both .pth files>
 ### Lung-masked DenseNet-121 and cross-test (Stage 4)
 Stage 4.1 trained and selected the masked DenseNet-121 using validation loss only. The saved training summary confirms the Stage 2 settings and the 4,578/654/624 split alignment; no test metrics were computed during training.
 
-Run the final masked test evaluation, the Stage 2 unmasked-checkpoint cross-test on masked test images, and Grad-CAM attention for the masked model:
+On Kaggle, attach the Chest X-Ray Images (Pneumonia) dataset and run the complete Stage 4.1 pipeline from a fresh checkout. The default is a one-epoch-per-phase smoke run; set `STAGE4_SMOKE=0` for the full training:
 ```bash
-python -m src.evaluate_masked --data-root <masked copies> --mask-dir <lung masks> --checkpoint-root <folder containing both final DenseNet checkpoints>
+git clone --branch stage4-masking-report https://github.com/Abhishek-Singh-2008/Pneumonia-detection.git /kaggle/working/Pneumonia-detection
+STAGE4_SMOKE=0 STAGE4_REPO=/kaggle/working/Pneumonia-detection \
+  python /kaggle/working/Pneumonia-detection/stage_4_masked_densenet_121_training.py
+```
+The runner reuses or downloads the Stage 3 masks, creates masked copies, trains Phase A then Phase B, and writes `/kaggle/working/stage4_bundle.zip`. Download that bundle to retain the checkpoints and results. The masked image copies and masks are temporary Kaggle scratch data under `/kaggle/temp/stage4/`; they are not included in the bundle and can be regenerated from the original dataset and shared masks.
+
+Run the final masked test evaluation, the Stage 2 unmasked-checkpoint cross-test on masked test images, and Grad-CAM attention for the masked model while the scratch data is still available:
+```bash
+python -m src.evaluate_masked --data-root /kaggle/temp/stage4/masked_chest_xray --mask-dir /kaggle/temp/stage4/lung_masks --checkpoint-root /kaggle/working/checkpoints
 ```
 The checkpoint folder must contain `densenet121_masked_phaseB_best.pth` and `densenet121_phaseB_lr1e-4_bs16_best.pth`. The script verifies their saved training metadata and prediction alignment with the committed test split. The masked model's single test pass also produces Grad-CAM, avoiding a second pass for its metrics.
 
@@ -216,7 +224,7 @@ Team folder: https://drive.google.com/drive/folders/1-IldsdQnswOB-PVVcwLyYlijN_4
 | `densenet121_phaseB_lr1e-4_bs16_best.pth` | 2 | DenseNet-121 final model (fine-tuned, chosen by val loss) |
 | [`lung_masks.zip`](https://drive.google.com/file/d/1ijzEW5sEwMmEbyUQfpTLJ7Oehl5IKqpr/view?usp=sharing) | 3 | Lung masks for all 5,856 images: `{image_id}.png`, 224 × 224, 0 = background, 255 = lung, plus `areas.csv` (left/right lung area). Unzip and pass the folder as `mask_dir` to `src.masking.lung_masks.load_mask` |
 
-Later stages add their files here (lung masks, masked-model weights).
+Stage 4 checkpoints are not stored in GitHub; the Kaggle runner includes them in `stage4_bundle.zip`. Share that bundle with the team if the weights are needed later.
 
 ## Results
 
