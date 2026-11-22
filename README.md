@@ -4,7 +4,7 @@
 
 We train a pneumonia classifier on paediatric chest X-rays and check whether it looks at the **lungs** or relies on **shortcuts** such as text markers, corners and image borders.
 
-> **Status:** Stages 1–3 are complete (Stage 3 is under review in [PR #25](https://github.com/Abhishek-Singh-2008/Pneumonia-detection/pull/25)). Stage 4.1 masked training and the Stage 4.2/4.3 Kaggle evaluation are complete; the final comparison and cross-test are recorded in `results/`. Stage 4 documentation and clean-clone validation are being finalized before its PR. The project report remains local. All design decisions are listed in the closing comment of [issue #21](https://github.com/Abhishek-Singh-2008/Pneumonia-detection/issues/21).
+> **Status:** Stages 1–3 are complete (Stage 3 is under review in [PR #25](https://github.com/Abhishek-Singh-2008/Pneumonia-detection/pull/25)). Stage 4.1 masked training and the Stage 4.2/4.3 Kaggle evaluation are complete; the final comparison and cross-test are recorded in `results/`. Stage 4 passed clean-clone validation and is ready for PR. The project report remains local. All design decisions are listed in the closing comment of [issue #21](https://github.com/Abhishek-Singh-2008/Pneumonia-detection/issues/21).
 
 ---
 
