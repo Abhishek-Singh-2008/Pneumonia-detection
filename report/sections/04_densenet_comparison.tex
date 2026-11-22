@@ -97,9 +97,10 @@ As for the baseline (\cref{sec:baseline}), DenseNet-121 performs much better on 
 The validation set is drawn from the same distribution as the training data, whereas the official test set differs from it. An AUC of 0.9995 on validation is therefore not evidence that the model works on new data,
 and we do not rely on the validation set alone: it is used only to choose the model, and the test metrics are the ones we report.
 DenseNet-121 narrows the gap (0.111 accuracy difference, baseline: 0.167) but does not remove it: 78 of the 234 normal test images (about a third) are still predicted as pneumonia.
-Whether these errors come from image regions outside the lungs is examined with Grad-CAM in the next section. % TODO: link to Aman's Grad-CAM section (Stage 3)
+Whether these errors come from image regions outside the lungs is examined with Grad-CAM in the next section (\cref{sec:gradcam}).
 
 \paragraph{Limitations.}
 All images come from one medical centre (\cref{sec:data-limits}), the three tuning runs cover only a small part of the hyperparameter space,
 and all numbers come from a single training run with seed 42, so small differences between models should not be over-interpreted.
-% TODO (Himanshu, Stage 4): add the lung-masked DenseNet-121 row to \cref{tab:comparison} and the attention results.
+The Stage~4 masked-model comparison and lung-attention results are reported separately in \cref{sec:masking} and \cref{tab:masking-comparison};
+the table above retains the Stage~2 comparison of unmasked models.

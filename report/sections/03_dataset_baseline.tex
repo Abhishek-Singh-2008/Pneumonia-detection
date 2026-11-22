@@ -147,7 +147,7 @@ so it correctly identifies only 50.0\% of normal test images, compared with 95.9
 Our validation set is drawn from the same pool as the training data, while the official test set appears to differ in distribution,
 and the model's errors on it are almost entirely false alarms on normal images.
 We did not tune the threshold or any other setting on the test set.
-% TODO (Ajit, Stage 2): one sentence comparing with DenseNet-121 once its results are in results/stage2_metrics.csv.
+DenseNet-121 later raises test accuracy to 0.873 and AUC to 0.971, and reduces false positives on normal images from 117 to 78 (\cref{sec:densenet-results}).
 This gap is a starting point for the attention analysis: if the false positives are driven by regions outside the lungs,
 the Grad-CAM metric and the masking experiment should reveal it.
 
