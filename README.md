@@ -211,6 +211,25 @@ python -m src.evaluate_masked --data-root /kaggle/temp/stage4/masked_chest_xray 
 ```
 The checkpoint folder must contain `densenet121_masked_phaseB_best.pth` and `densenet121_phaseB_lr1e-4_bs16_best.pth`. The script verifies their saved training metadata and prediction alignment with the committed test split. The masked model's single test pass also produces Grad-CAM, avoiding a second pass for its metrics.
 
+To regenerate the final AUC and prediction files without retraining, attach the Chest X-Ray dataset to Kaggle and download `stage4_bundle.zip`, `densenet121_phaseB_lr1e-4_bs16_best.pth`, and `lung_masks.zip` from the [team Drive folder](https://drive.google.com/drive/folders/1-IldsdQnswOB-PVVcwLyYlijN_4TlTYA). Put the downloaded files in `/kaggle/working/stage4-assets/`, then run from the repository root:
+
+```bash
+mkdir -p /kaggle/working/checkpoints /kaggle/temp/stage4/lung_masks
+unzip /kaggle/working/stage4-assets/stage4_bundle.zip -d /kaggle/working/checkpoints
+unzip /kaggle/working/stage4-assets/lung_masks.zip -d /kaggle/temp/stage4/lung_masks
+cp /kaggle/working/stage4-assets/densenet121_phaseB_lr1e-4_bs16_best.pth /kaggle/working/checkpoints/
+python -m src.masking.masked_dataset \
+  --data-root /kaggle/input/datasets/paultimothymooney/chest-xray-pneumonia/chest_xray \
+  --mask-dir /kaggle/temp/stage4/lung_masks \
+  --output-root /kaggle/temp/stage4/masked_chest_xray
+python -m src.evaluate_masked \
+  --data-root /kaggle/temp/stage4/masked_chest_xray \
+  --mask-dir /kaggle/temp/stage4/lung_masks \
+  --checkpoint-root /kaggle/working/checkpoints
+```
+
+Download `results/stage4_metrics.csv` and `results/stage4_masked_densenet/masked_test_predictions_attention.csv` from the Kaggle output to verify the AUC from the higher-precision predictions. This evaluation does not rerun either training phase.
+
 Outputs: `results/stage4_metrics.csv` (matched masked-model test metrics and lung attention), `results/stage4_cross_test_metrics.csv` (unmasked-trained model evaluated on masked images), `results/stage4_comparison.csv` (baseline, unmasked DenseNet and masked DenseNet), and per-image predictions/attention in `results/stage4_masked_densenet/`. The evaluator ran on Kaggle GPU over the 624-image committed test split; the test set was not used for training or model selection.
 
 ## Shared files (Google Drive)
@@ -223,8 +242,10 @@ Team folder: https://drive.google.com/drive/folders/1-IldsdQnswOB-PVVcwLyYlijN_4
 | `densenet121_phaseA_best.pth` | 2 | DenseNet-121 after Phase A (head only) |
 | `densenet121_phaseB_lr1e-4_bs16_best.pth` | 2 | DenseNet-121 final model (fine-tuned, chosen by val loss) |
 | [`lung_masks.zip`](https://drive.google.com/file/d/1ijzEW5sEwMmEbyUQfpTLJ7Oehl5IKqpr/view?usp=sharing) | 3 | Lung masks for all 5,856 images: `{image_id}.png`, 224 × 224, 0 = background, 255 = lung, plus `areas.csv` (left/right lung area). Unzip and pass the folder as `mask_dir` to `src.masking.lung_masks.load_mask` |
+| [`stage4_bundle.zip`](https://drive.google.com/drive/folders/1-IldsdQnswOB-PVVcwLyYlijN_4TlTYA) | 4 | Masked DenseNet-121 Phase A/B checkpoints and Stage 4.1 training outputs |
+| [`densenet121_masked_phaseB_best.pth`](https://drive.google.com/drive/folders/1-IldsdQnswOB-PVVcwLyYlijN_4TlTYA) | 4 | Selected lung-masked DenseNet-121 Phase B checkpoint (best validation loss) |
 
-Stage 4 checkpoints are not stored in GitHub; the Kaggle runner includes them in `stage4_bundle.zip`. The selected masked Phase B checkpoint is `densenet121_masked_phaseB_best.pth`.
+Stage 4 checkpoints are not stored in GitHub. The selected masked Phase B checkpoint is available in the [team Drive folder](https://drive.google.com/drive/folders/1-IldsdQnswOB-PVVcwLyYlijN_4TlTYA) and is also included in the Kaggle-generated `stage4_bundle.zip`.
 
 ## Results
 
