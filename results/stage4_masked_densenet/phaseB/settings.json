@@ -1,0 +1,36 @@
+{
+  "max_epochs": 15,
+  "patience": 4,
+  "batch_size": 16,
+  "lr": 0.0001,
+  "model": "densenet121",
+  "phase": "B (all layers fine-tuned)",
+  "data_setting": "masked",
+  "dropout": 0.2,
+  "seed": 42,
+  "image_size": 224,
+  "mean": [
+    0.485,
+    0.456,
+    0.406
+  ],
+  "std": [
+    0.229,
+    0.224,
+    0.225
+  ],
+  "rotation_degrees": 10,
+  "pos_weight": 0.347263,
+  "threshold": 0.5,
+  "optimizer": "Adam",
+  "weight_decay": 0.0001,
+  "scheduler": "ReduceLROnPlateau(factor=0.5, patience=2) on val loss",
+  "selection": "lowest val loss",
+  "amp": true,
+  "trainable_parameters": 6954881,
+  "masked_data_root": "/kaggle/temp/stage4/masked_chest_xray",
+  "start_from": "masked Phase A checkpoint, epoch 19 (val loss 0.083285)",
+  "best_epoch": 10,
+  "best_val_loss": 0.028584,
+  "device": "cuda"
+}

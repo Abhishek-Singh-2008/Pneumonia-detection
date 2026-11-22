@@ -1,0 +1,9 @@
+{
+  "n_test_images": 624,
+  "n_zero_heatmaps": 0,
+  "attention_in_lung_mean": 0.5179095153894024,
+  "attention_in_lung_median": 0.521214520519305,
+  "lung_area_mean": 0.3769967215401786,
+  "lift_mean": 1.3990802932795094,
+  "border_fraction_mean": 0.21271287152993268
+}
