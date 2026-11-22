@@ -44,8 +44,11 @@ WORK = Path("/kaggle/working")
 # STAGE4_REPO lets a notebook reuse a checkout it cloned itself instead of letting
 # this script clone (and replace) the repository.
 REPO = Path(os.environ.get("STAGE4_REPO", str(WORK / "Pneumonia-detection")))
-MASK_DIR = WORK / "lung_masks"
-MASKED_ROOT = WORK / "masked_chest_xray"
+# Masks and masked copies are scratch: /kaggle/temp is not saved as kernel output, so
+# only the bundle and results are downloaded. /kaggle/working keeps the outputs.
+SCRATCH = Path("/kaggle/temp/stage4")
+MASK_DIR = SCRATCH / "lung_masks"
+MASKED_ROOT = SCRATCH / "masked_chest_xray"
 CKPT_DIR = Path("/kaggle/working/checkpoints")
 
 # Stage 3 lung masks shared on the team Drive (5,856 PNGs + areas.csv, verified
@@ -181,8 +184,8 @@ def flatten_masks() -> None:
 def download_masks_from_drive() -> bool:
     """Download the team Drive mask zip and unpack it; return False if unavailable."""
     log(f"download lung masks from Drive ({DRIVE_MASK_ZIP_ID})")
-    WORK.mkdir(parents=True, exist_ok=True)
-    zip_path = WORK / "lung_masks.zip"
+    SCRATCH.mkdir(parents=True, exist_ok=True)
+    zip_path = SCRATCH / "lung_masks.zip"
     request = urllib.request.Request(DRIVE_MASK_ZIP_URL, headers={"User-Agent": "Mozilla/5.0"})
     try:
         with urllib.request.urlopen(request, timeout=300) as response, open(zip_path, "wb") as out:

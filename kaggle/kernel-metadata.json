@@ -1,5 +1,5 @@
 {
-  "id": "KAGGLE_USERNAME/stage4-masked-training",
+  "id": "himanshukumar8687/stage4-masked-training",
   "title": "Stage 4 masked DenseNet-121 training",
   "code_file": "run_masked_training.py",
   "language": "python",
