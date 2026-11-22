@@ -1,0 +1,2 @@
+model,data_setting,split,accuracy,precision,recall,f1,auc,tn,fp,fn,tp,attention_in_lung
+densenet121,masked_phaseA,val,0.9297,0.9911,0.9134,0.9506,0.9864,165,4,42,443,

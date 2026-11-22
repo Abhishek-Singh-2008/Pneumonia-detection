@@ -147,4 +147,4 @@ but the flag misses partial errors: in the random sample, 4 of the 5 imperfect m
 Because the missed parts are diseased lung, where a model should look, the lung attention on PNEUMONIA images is probably underestimated.
 DenseNet-121's heatmaps are computed on a $7\times7$ map (the custom CNN's on $14\times14$), and coarser maps spread out more after upsampling, which moves the lung attention towards the chance level.
 Grad-CAM shows which regions raised the score, not why, and it does not prove that the model would fail without them;
-\cref{sec:masking} tests this directly by training on lung-masked images. % TODO (Himanshu): check the label of the Stage 4 section
+\cref{sec:masking} tests sensitivity to extra-pulmonary context by training on lung-masked images.

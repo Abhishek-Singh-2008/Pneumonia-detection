@@ -1,0 +1,2 @@
+model,data_setting,split,accuracy,precision,recall,f1,auc,tn,fp,fn,tp,attention_in_lung
+densenet121,masked,test,0.8702,0.8308,0.9949,0.9055,0.9759,155,79,2,388,0.5179

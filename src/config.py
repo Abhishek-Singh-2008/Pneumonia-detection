@@ -42,9 +42,9 @@ def get_data_root() -> Path:
     three official folders:
 
     1. the PNEUMONIA_DATA_ROOT environment variable (set this to use data stored anywhere);
-    2. the Kaggle input folder (current mount path first, then the older one);
-    3. any other chest_xray/ folder under /kaggle/input (in case Kaggle changes the path again);
-    4. data/chest_xray/ inside the repo (where the README tells Colab/local users to unzip).
+    2. the Kaggle input folder (current mount path first, then the older one, then a
+       recursive search for the dataset when Kaggle mounts it under a different name);
+    3. data/chest_xray/ inside the repo (where the README tells Colab/local users to unzip).
 
     Only the top-level chest_xray/ folder is used. The Kaggle download also contains a
     duplicate copy at chest_xray/chest_xray/ and a __MACOSX/ folder; reading those
@@ -64,17 +64,21 @@ def get_data_root() -> Path:
     # 2. Kaggle mount paths: the current one (seen on our Kaggle runs), then the older one.
     candidates.append(Path("/kaggle/input/datasets/paultimothymooney/chest-xray-pneumonia/chest_xray"))
     candidates.append(Path("/kaggle/input/chest-xray-pneumonia/chest_xray"))
-    # 3. Fallback search on Kaggle. Skip __MACOSX and the nested duplicate
-    #    (a chest_xray folder whose parent is also called chest_xray).
+    # Kaggle sometimes mounts attached datasets under a generated or renamed folder.
+    # Keep the historical fallback, but only consider folders that contain all splits.
     kaggle_input = Path("/kaggle/input")
     if kaggle_input.is_dir():
-        candidates += sorted(p for p in kaggle_input.glob("**/chest_xray")
-                             if "__MACOSX" not in p.parts and p.parent.name != "chest_xray")
-    # 4. Local / Colab download inside the repo.
+        candidates.extend(path.parent for path in kaggle_input.rglob("train") if path.is_dir())
+    # 3. Local / Colab download inside the repo.
     candidates.append(REPO_ROOT / "data" / "chest_xray")
 
     # Return the first candidate that really contains all three official folders.
+    checked = set()
     for root in candidates:
+        root = root.resolve()
+        if root in checked:
+            continue
+        checked.add(root)
         if all((root / f).is_dir() for f in OFFICIAL_FOLDERS):
             return root
     raise FileNotFoundError(

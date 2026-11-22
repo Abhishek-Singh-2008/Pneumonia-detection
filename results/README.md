@@ -23,4 +23,7 @@ Model weights are not stored here; they're in the team Google Drive folder (see 
 |---|---|---|
 | `stage2_metrics.csv` | 2 (Ajit) | DenseNet-121 val/test rows + comparison table with the baseline |
 | `stage3/` | 3 (Aman) | Grad-CAM heatmaps, attention-metric table, shortcut examples |
-| `stage4_*` | 4 (Himanshu) | Masked-model metrics, cross-test, final comparison table |
+| `stage4_metrics.csv` | 4 (Himanshu) | Masked DenseNet-121 test metrics with its Grad-CAM lung-attention value |
+| `stage4_cross_test_metrics.csv` | 4 (Himanshu) | Stage 2 unmasked DenseNet-121 evaluated on masked test images; training and evaluation data are explicit columns |
+| `stage4_comparison.csv` | 4 (Himanshu) | Final matched test comparison: custom CNN, unmasked DenseNet-121 and masked DenseNet-121 |
+| `stage4_masked_densenet/` | 4 (Himanshu) | Per-image test predictions and attention, attention summary, training outputs |

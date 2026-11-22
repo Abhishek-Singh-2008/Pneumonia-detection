@@ -4,7 +4,7 @@
 
 We train a pneumonia classifier on paediatric chest X-rays and check whether it looks at the **lungs** or relies on **shortcuts** such as text markers, corners and image borders.
 
-> **Status:** Stage 1 (data pipeline + baseline CNN) and Stage 2 (DenseNet-121) are complete and merged ([PR #23](https://github.com/Abhishek-Singh-2008/Pneumonia-detection/pull/23), [PR #24](https://github.com/Abhishek-Singh-2008/Pneumonia-detection/pull/24)). Stage 3 (lung masks, Grad-CAM, lung-attention metric) is complete and under review in [PR #25](https://github.com/Abhishek-Singh-2008/Pneumonia-detection/pull/25). Stage 4 (lung-masked training, final comparison, report) is next. All design decisions are final and listed in the closing comment of [issue #21](https://github.com/Abhishek-Singh-2008/Pneumonia-detection/issues/21). The setup, run steps and results below get filled in as each stage is finished.
+> **Status:** Stages 1–4 are complete, including the Stage 4.4 README/final check and Stage 4.5 report assembly. Stage 4 results and the final comparison are recorded in `results/`; Kaggle data and model weights remain external. The assembled report is maintained in [Overleaf](https://www.overleaf.com/project/6b02a18da5a3f1c8ad57832d/share#6f94ea97aa960a91dbba342c538e075b273f2f39a382a43c), with a local source mirror and upload bundle in `report/`. All design decisions are listed in the closing comment of [issue #21](https://github.com/Abhishek-Singh-2008/Pneumonia-detection/issues/21).
 
 ---
 
@@ -51,7 +51,7 @@ The project runs as four stages in a fixed order. Each member starts when the pr
 | 1 | Abhishek Singh | Data pipeline, splits, preprocessing, baseline CNN | `stage1-data-baseline` | Splits, seed, baseline results |
 | 2 | Ajit Yadav | DenseNet-121 transfer learning, comparison with baseline | `stage2-densenet` | Best model, last conv layer name |
 | 3 | Aman Singh | Grad-CAM, lung masks, attention metric, shortcut analysis | `stage3-gradcam` | Lung masks, metric function |
-| 4 | Himanshu Kumar | Lung-masked training, final comparison, README, report | `stage4-masking-report` | Final table, README, report |
+| 4 | Himanshu Kumar | Lung-masked training, final comparison, README final check, report assembly | `stage4-masking-report` | Final table, README, assembled report |
 
 ## Repository structure
 
@@ -79,7 +79,7 @@ Pneumonia-detection/
 │   └── masking/           # lung_masks.py: Stage 3.2 (Aman); masked dataset/training: Stage 4 (Himanshu)
 ├── notebooks/             # notebooks per stage: 01_, 02_, 03_, 04_
 ├── results/               # committed metrics tables and figures (see results/README.md)
-└── report/                # draft LaTeX sections + notes for the Overleaf report (see report/README.md)
+└── report/                # LaTeX source mirror and Overleaf upload bundle (see report/README.md)
 ```
 
 ## Setup and how to run
@@ -194,6 +194,44 @@ python -m src.explain.run_gradcam --checkpoint-dir <folder with both .pth files>
 - **Attention metric** (`src/explain/attention.py`): `attention_in_lung(cams, masks)` = heatmap inside the lung mask / whole heatmap. It is reported next to its chance level `lung_area` (what an evenly spread heatmap would score) and `border_fraction` (share in the outer 10% band, where text markers sit). Stage 4 calls the same function on the masked model.
 - `run_gradcam.py` runs both models on all 624 test images, first checks that its test metrics equal the committed Stage 1/2 numbers (right weights loaded), and fills `attention_in_lung` in `results/stage3_metrics.csv`. Figures use a fixed sample of 50 test images (25 per class, up to 8 per class misclassified by at least one model, the same images for both models): `results/stage3/sample_images.csv`.
 
+### Lung-masked DenseNet-121 and cross-test (Stage 4)
+Stage 4.1 trained and selected the masked DenseNet-121 using validation loss only. The saved training summary confirms the Stage 2 settings and the 4,578/654/624 split alignment; no test metrics were computed during training.
+
+On Kaggle, attach the Chest X-Ray Images (Pneumonia) dataset and run the complete Stage 4.1 pipeline from a fresh checkout. The runner performs full training by default; set `STAGE4_SMOKE=1` for a one-epoch-per-phase smoke run:
+```bash
+git clone --branch stage4-masking-report https://github.com/Abhishek-Singh-2008/Pneumonia-detection.git /kaggle/working/Pneumonia-detection
+STAGE4_REPO=/kaggle/working/Pneumonia-detection \
+  python /kaggle/working/Pneumonia-detection/kaggle/run_masked_training.py
+```
+The runner reuses or downloads the Stage 3 masks, creates masked copies, trains Phase A then Phase B, and writes `/kaggle/working/stage4_bundle.zip`. Download that bundle to retain the checkpoints and results. The masked image copies and masks are temporary Kaggle scratch data under `/kaggle/temp/stage4/`; they are not included in the bundle and can be regenerated from the original dataset and shared masks.
+
+Run the final masked test evaluation, the Stage 2 unmasked-checkpoint cross-test on masked test images, and Grad-CAM attention for the masked model while the scratch data is still available:
+```bash
+python -m src.evaluate_masked --data-root /kaggle/temp/stage4/masked_chest_xray --mask-dir /kaggle/temp/stage4/lung_masks --checkpoint-root /kaggle/working/checkpoints
+```
+The checkpoint folder must contain `densenet121_masked_phaseB_best.pth` and `densenet121_phaseB_lr1e-4_bs16_best.pth`. The script verifies their saved training metadata and prediction alignment with the committed test split. The masked model's single test pass also produces Grad-CAM, avoiding a second pass for its metrics.
+
+To regenerate the final AUC and prediction files without retraining, attach the Chest X-Ray dataset to Kaggle and download `stage4_bundle.zip`, `densenet121_phaseB_lr1e-4_bs16_best.pth`, and `lung_masks.zip` from the [team Drive folder](https://drive.google.com/drive/folders/1-IldsdQnswOB-PVVcwLyYlijN_4TlTYA). Put the downloaded files in `/kaggle/working/stage4-assets/`, then run from the repository root:
+
+```bash
+mkdir -p /kaggle/working/checkpoints /kaggle/temp/stage4/lung_masks
+unzip /kaggle/working/stage4-assets/stage4_bundle.zip -d /kaggle/working/checkpoints
+unzip /kaggle/working/stage4-assets/lung_masks.zip -d /kaggle/temp/stage4/lung_masks
+cp /kaggle/working/stage4-assets/densenet121_phaseB_lr1e-4_bs16_best.pth /kaggle/working/checkpoints/
+python -m src.masking.masked_dataset \
+  --data-root /kaggle/input/datasets/paultimothymooney/chest-xray-pneumonia/chest_xray \
+  --mask-dir /kaggle/temp/stage4/lung_masks \
+  --output-root /kaggle/temp/stage4/masked_chest_xray
+python -m src.evaluate_masked \
+  --data-root /kaggle/temp/stage4/masked_chest_xray \
+  --mask-dir /kaggle/temp/stage4/lung_masks \
+  --checkpoint-root /kaggle/working/checkpoints
+```
+
+Download `results/stage4_metrics.csv` and `results/stage4_masked_densenet/masked_test_predictions_attention.csv` from the Kaggle output to verify the AUC from the higher-precision predictions. This evaluation does not rerun either training phase.
+
+Outputs: `results/stage4_metrics.csv` (matched masked-model test metrics and lung attention), `results/stage4_cross_test_metrics.csv` (unmasked-trained model evaluated on masked images), `results/stage4_comparison.csv` (baseline, unmasked DenseNet and masked DenseNet), and per-image predictions/attention in `results/stage4_masked_densenet/`. The evaluator ran on Kaggle GPU over the 624-image committed test split; the test set was not used for training or model selection.
+
 ## Shared files (Google Drive)
 
 Team folder: https://drive.google.com/drive/folders/1-IldsdQnswOB-PVVcwLyYlijN_4TlTYA?usp=sharing
@@ -204,27 +242,30 @@ Team folder: https://drive.google.com/drive/folders/1-IldsdQnswOB-PVVcwLyYlijN_4
 | `densenet121_phaseA_best.pth` | 2 | DenseNet-121 after Phase A (head only) |
 | `densenet121_phaseB_lr1e-4_bs16_best.pth` | 2 | DenseNet-121 final model (fine-tuned, chosen by val loss) |
 | [`lung_masks.zip`](https://drive.google.com/file/d/1ijzEW5sEwMmEbyUQfpTLJ7Oehl5IKqpr/view?usp=sharing) | 3 | Lung masks for all 5,856 images: `{image_id}.png`, 224 × 224, 0 = background, 255 = lung, plus `areas.csv` (left/right lung area). Unzip and pass the folder as `mask_dir` to `src.masking.lung_masks.load_mask` |
+| [`stage4_bundle.zip`](https://drive.google.com/drive/folders/1-IldsdQnswOB-PVVcwLyYlijN_4TlTYA) | 4 | Masked DenseNet-121 Phase A/B checkpoints and Stage 4.1 training outputs |
+| [`densenet121_masked_phaseB_best.pth`](https://drive.google.com/drive/folders/1-IldsdQnswOB-PVVcwLyYlijN_4TlTYA) | 4 | Selected lung-masked DenseNet-121 Phase B checkpoint (best validation loss) |
 
-Later stages add their files here (lung masks, masked-model weights).
+Stage 4 checkpoints are not stored in GitHub. The selected masked Phase B checkpoint is available in the [team Drive folder](https://drive.google.com/drive/folders/1-IldsdQnswOB-PVVcwLyYlijN_4TlTYA) and is also included in the Kaggle-generated `stage4_bundle.zip`.
 
 ## Results
 
-*Test-set metrics, filled in as each stage is completed. The final comparison table is added in Stage 4.*
+*Final test-set metrics on the committed 624-image test split.*
 
 | Model | Training data | Accuracy | Recall | F1 | AUC | Lung attention % |
 |---|---|---|---|---|---|---|
 | Custom CNN | Unmasked | 0.8013 | 0.9821 | 0.8607 | 0.9016 | 43.4% |
 | DenseNet-121 | Unmasked | 0.8734 | 0.9974 | 0.9078 | 0.9713 | 39.5% |
-| DenseNet-121 | Lung-masked | – | – | – | – | – |
+| DenseNet-121 | Lung-masked | 0.8702 | 0.9949 | 0.9055 | 0.9759 | 51.8% |
 
 Full metrics (with precision and the confusion matrix, val and test) are in `results/stageN_metrics.csv`.
-Lung attention = mean share of the Grad-CAM heatmap inside the lung mask over the 624 test images (`results/stage3_metrics.csv`). The lungs cover 37.7% of the image on average, which is what an evenly spread heatmap would score.
+Lung attention = mean share of the Grad-CAM heatmap inside the lung mask over the 624 test images (`results/stage3_metrics.csv`, `results/stage4_metrics.csv`). The lungs cover 37.7% of the image on average, which is what an evenly spread heatmap would score.
 
 ### Findings so far
 - **Val–test gap (Stage 1):** the baseline reaches 0.968 accuracy on val but 0.801 on test. It predicts 117 of 234 NORMAL test images as pneumonia while missing only 7 of 390 pneumonia images. The val split comes from the same distribution as train; the official test set differs. Nothing was tuned on test.
 - **DenseNet-121 vs baseline (Stage 2):** on the same test set, DenseNet-121 raises accuracy from 0.801 to 0.873 and AUC from 0.902 to 0.971. False positives drop from 117 to 78 and only 1 of 390 pneumonia images is missed (baseline: 7). The ImageNet-pretrained backbone gives better features than a CNN trained from scratch on about 4,500 images. A val–test gap remains, as in Stage 1: val accuracy 0.985 vs test 0.873, and precision 0.998 on val vs 0.833 on test. 78 of 234 NORMAL test images (about a third) are still predicted as pneumonia, which makes them a good target for the Grad-CAM analysis. The val numbers (AUC 0.9995) are very high because val comes from the same distribution as train, so we do not rely on val alone: the test set is the number that matters.
 - **Possible shortcuts in the raw data ([#22](https://github.com/Abhishek-Singh-2008/Pneumonia-detection/issues/22)):** NORMAL images are wider than tall by about 1.2×, PNEUMONIA images by about 1.5×, so the plain 224×224 resize distorts the two classes differently. All RGB files are PNEUMONIA; this cue is removed by converting every image to grayscale first.
-- **Where the models look (Stage 3):** both models put only a little more of their Grad-CAM heatmap on the lungs than an evenly spread heatmap would: 43.4% (custom CNN) and 39.5% (DenseNet-121) against a lung area of 37.7% (`results/stage3/attention_summary.csv`). The more accurate DenseNet-121 is the closer of the two to chance, especially on PNEUMONIA images (37.5% vs 36.7% lung area). Its most confident false positives (NORMAL test images predicted PNEUMONIA with p = 1.00) put the heatmap on burned-in text: the "KV58"/"KV59"/"KV60" exposure labels in the bottom-right corner and timestamps in the top-right corner (`results/stage3/false_positives_densenet121.png`). This is direct evidence of shortcut learning. The same corner text also drives some *correct* PNEUMONIA predictions (right answer for the wrong reason), and the custom CNN often puts a hot spot on the "R" laterality marker; eight hand-picked examples are in `results/stage3/shortcut_examples.png`. Lung masks: 226 of 5,856 are flagged as implausible, 225 of them PNEUMONIA images where consolidated lung was missed; only 19 are test images, and leaving them out changes the averages by less than 0.01 (`results/stage3/attention_robustness.csv`). The flag misses partial errors, though: by eye, 19 of 24 random masks are correct and the 5 imperfect ones (all PNEUMONIA) include 4 unflagged ones (`results/stage3/lung_mask_eye_check.csv`), so lung attention on PNEUMONIA images is probably underestimated.
+- **Where the models look (Stage 3):** both models put only a little more of their Grad-CAM heatmap on the lungs than an evenly spread heatmap would: 43.4% (custom CNN) and 39.5% (DenseNet-121) against a lung area of 37.7% (`results/stage3/attention_summary.csv`). The more accurate DenseNet-121 is the closer of the two to chance, especially on PNEUMONIA images (37.5% vs 36.7% lung area). Selected high-confidence false positives put heat on burned-in exposure labels and timestamps, showing that the models can attend to non-pulmonary regions; these examples do not establish that the text caused the errors. The same corner text also appears in some correct PNEUMONIA predictions, and the custom CNN often puts a hot spot on the "R" laterality marker (`results/stage3/shortcut_examples.png`). Lung masks: 226 of 5,856 are flagged as implausible (182 train, 25 validation, 19 test). The flag misses partial errors: by eye, 19 of 24 random masks are correct and the 5 imperfect ones (all PNEUMONIA) include 4 unflagged ones (`results/stage3/lung_mask_eye_check.csv`), so lung attention on PNEUMONIA images is probably underestimated.
+- **Effect of lung masking (Stage 4):** on their matched test inputs, masked and unmasked DenseNet-121 are similar: accuracy is 0.8702 vs 0.8734, F1 is 0.9055 vs 0.9078, and AUC is 0.9759 vs 0.9713. Mean lung attention rises from 39.52% to 51.79%; the masked model's attention is 1.40 times the mean lung area (37.70%) (`results/stage4_metrics.csv`, `results/stage4_comparison.csv`, `results/stage4_masked_densenet/masked_attention_summary.json`). The masked model has 79 false positives versus 78 for the unmasked model, with 68 shared; both highlighted Stage 3 examples (`NORMAL2-IM-0252` and `NORMAL2-IM-0221`) remain false positives after masking. Those examples show where the unmasked model attends, but do not explain most test errors or remove the test-set gap. In the cross-test, the unmasked checkpoint on masked images reaches 0.6314 accuracy and 0.8625 AUC, with 230 false positives among 234 NORMAL images. Because masked inputs, including their black backgrounds, are new to the unmasked model, some of the drop may reflect input-distribution change as well as loss of extra-pulmonary cues. The result does not identify a specific shortcut or establish causation. The 19 flagged test masks remain included, and 182 flagged training masks were also used; the Stage 3 eye check found partial misses that the flag does not catch.
 
 ## Working rules
 

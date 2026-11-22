@@ -36,3 +36,6 @@ task/
 
 # Model checkpoints (local runs)
 checkpoints/
+
+# Generated lung-masked copies (large local/Kaggle data)
+masked_chest_xray/

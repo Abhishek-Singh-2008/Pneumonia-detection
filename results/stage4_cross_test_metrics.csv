@@ -1,0 +1,2 @@
+model,training_data,evaluation_data,split,accuracy,precision,recall,f1,auc,tn,fp,fn,tp
+densenet121,unmasked,masked,test,0.6314,0.629,1.0,0.7723,0.8625,4,230,0,390
