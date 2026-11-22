@@ -26,6 +26,7 @@ from PIL import Image, ImageOps
 from src.config import IMAGE_SIZE, REPO_ROOT, RESULTS_DIR, SEED, SPLITS_DIR, get_data_root
 from src.data.dataset import ChestXrayDataset, build_transforms
 from src.data.splits import load_split
+from src.masking.lung_masks import load_mask
 from src.utils import seed_worker
 
 
@@ -33,33 +34,6 @@ def default_output_root() -> Path:
     """Return a writable location for generated masked images."""
     kaggle_working = Path("/kaggle/working")
     return kaggle_working / "masked_chest_xray" if kaggle_working.is_dir() else REPO_ROOT / "masked_chest_xray"
-
-
-def load_mask(mask_dir: Path, image_id: str) -> np.ndarray:
-    """Load one Stage 3 mask as a boolean array of shape (IMAGE_SIZE, IMAGE_SIZE).
-
-    Args:
-        mask_dir: folder containing `{image_id}.png` masks.
-        image_id: image identifier from the committed split CSV.
-
-    Returns:
-        Boolean NumPy array; True marks pixels inside the lung mask.
-
-    Raises:
-        FileNotFoundError: if the mask file is missing.
-        ValueError: if its dimensions do not match the project's image size.
-    """
-    path = mask_dir / f"{image_id}.png"
-    if not path.is_file():
-        raise FileNotFoundError(f"Lung mask not found for {image_id}: {path}")
-    with Image.open(path) as mask_image:
-        mask_image = ImageOps.grayscale(mask_image)
-        if mask_image.size != (IMAGE_SIZE, IMAGE_SIZE):
-            raise ValueError(
-                f"Mask for {image_id} has size {mask_image.size}; expected "
-                f"{(IMAGE_SIZE, IMAGE_SIZE)}: {path}"
-            )
-        return np.asarray(mask_image, dtype=np.uint8) > 0
 
 
 def apply_mask(image: Image.Image, mask: np.ndarray) -> Image.Image:

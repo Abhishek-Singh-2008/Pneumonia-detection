@@ -92,6 +92,11 @@ def build_comparison_table(
         raise ValueError("Expected exactly one test-metric row for each final comparison model/setting")
     if pd.isna(dense_unmasked.iloc[0]["attention_in_lung"]):
         raise ValueError("Stage 3 DenseNet test row is missing its attention_in_lung metric")
+    custom_attention = stage3.query("model == 'custom_cnn' and split == 'test'")
+    if len(custom_attention) != 1 or pd.isna(custom_attention.iloc[0]["attention_in_lung"]):
+        raise ValueError("Stage 3 custom CNN test row is missing its attention_in_lung metric")
+    custom = custom.copy()
+    custom.loc[:, "attention_in_lung"] = custom_attention.iloc[0]["attention_in_lung"]
     return pd.concat([custom, dense_unmasked, dense_masked], ignore_index=True).loc[:, list(METRICS_COLUMNS)]
 
 
@@ -194,8 +199,11 @@ def main() -> None:
         "lift": attention / areas,
         "border_fraction": borders,
     })
-    masked_predictions.round(6).to_csv(
-        STAGE4_DIR / "masked_test_predictions_attention.csv", index=False, lineterminator="\n"
+    # Preserve probabilities at float precision so probability ties introduced by
+    # display rounding do not make the committed AUC impossible to reproduce.
+    masked_predictions.to_csv(
+        STAGE4_DIR / "masked_test_predictions_attention.csv", index=False,
+        lineterminator="\n", float_format="%.12g",
     )
     attention_summary = _attention_summary(attention, areas, borders)
     (STAGE4_DIR / "masked_attention_summary.json").write_text(
@@ -222,8 +230,9 @@ def main() -> None:
         "prob_pneumonia": cross_out["probs"],
         "pred": (cross_out["probs"] >= THRESHOLD).astype(int),
     })
-    cross_predictions.round(6).to_csv(
-        STAGE4_DIR / "unmasked_model_on_masked_test_predictions.csv", index=False, lineterminator="\n"
+    cross_predictions.to_csv(
+        STAGE4_DIR / "unmasked_model_on_masked_test_predictions.csv", index=False,
+        lineterminator="\n", float_format="%.12g",
     )
     del unmasked_model, cross_out
     if device.type == "cuda":
