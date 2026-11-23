@@ -1,2 +1,0 @@
-model,data_setting,split,accuracy,precision,recall,f1,auc,tn,fp,fn,tp,attention_in_lung
-densenet121,unmasked_phaseB_lr5e-5,val,0.9847,0.9958,0.9835,0.9896,0.9984,167,2,8,477,
