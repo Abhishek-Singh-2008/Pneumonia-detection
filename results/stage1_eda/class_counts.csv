@@ -1,5 +1,0 @@
-official_folder,NORMAL,PNEUMONIA,total,% pneumonia
-train,1341.0,3875.0,5216.0,74.3
-val,8.0,8.0,16.0,50.0
-test,234.0,390.0,624.0,62.5
-all,1583.0,4273.0,5856.0,73.0

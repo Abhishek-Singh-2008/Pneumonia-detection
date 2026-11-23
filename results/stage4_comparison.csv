@@ -1,4 +1,0 @@
-model,data_setting,split,accuracy,precision,recall,f1,auc,tn,fp,fn,tp,attention_in_lung
-custom_cnn,unmasked,test,0.8013,0.766,0.9821,0.8607,0.9016,117,117,7,383,0.4341
-densenet121,unmasked,test,0.8734,0.833,0.9974,0.9078,0.9713,156,78,1,389,0.3952
-densenet121,masked,test,0.8702,0.8308,0.9949,0.9055,0.9759,155,79,2,388,0.5179
